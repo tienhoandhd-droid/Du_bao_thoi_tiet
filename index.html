@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMP Validation Intelligence Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginPage" class="login-page">
+  <div class="snowflakes" id="snowflakes"></div>
+  <div class="login-box">
+    <div class="logo-area">
+      <span class="crystal">❄</span>
+      <h1>GMP Validation Intelligence</h1>
+    </div>
+    <p class="subtitle">Hệ thống hỗ trợ thẩm định thiết bị và hệ thống</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="email@company.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Mật khẩu</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleLogin()">
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <button class="btn btn-primary" onclick="handleLogin()" id="loginBtn">❄ Đăng nhập</button>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="crystal-icon">❄</span><h2>GMP Validation</h2>
+      <span>Intelligence Dashboard</span>
+    </div>
+    <nav>
+      <a href="#" data-page="dashboard" class="active" onclick="showPage('dashboard')"><span class="icon">❄</span> Tổng quan</a>
+      <a href="#" data-page="ai-search" onclick="showPage('ai-search')"><span class="icon">✦</span> AI Search / Q&A</a>
+      <a href="#" data-page="documents" onclick="showPage('documents')"><span class="icon">❆</span> Thư viện tài liệu</a>
+      <div class="divider"></div>
+      <a href="#" data-page="audit" onclick="showPage('audit')"><span class="icon">✧</span> Audit Trail</a>
+      <a href="#" data-page="security" onclick="showPage('security')"><span class="icon">🔒</span> Bảo mật</a>
+    </nav>
+  </aside>
+
+  <header class="topbar">
+    <span class="page-title" id="pageTitle">❄ Tổng quan</span>
+    <div class="user-info">
+      <span id="userEmail"></span>
+      <span class="role-badge" id="userRole"></span>
+      <button class="btn btn-sm btn-outline" onclick="handleLogout()">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="page-dashboard" class="page active">
+      <div class="service-status" id="serviceStatus"><div class="loading">Đang kiểm tra hệ thống...</div></div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card"><h3>❄ Cảnh báo hệ thống</h3><div id="systemWarnings"></div></div>
+    </div>
+
+    <!-- ===== AI SEARCH ===== -->
+    <div id="page-ai-search" class="page">
+      <div class="card">
+        <h3>✦ Hỏi AI về SOP, Guideline, Đề cương</h3>
+        <div class="search-box">
+          <input type="text" id="queryInput" placeholder="Ví dụ: Điều kiện tiên quyết IQ nằm ở SOP nào?" onkeydown="if(event.key==='Enter')handleQuery()">
+          <button class="btn btn-primary" onclick="handleQuery()" id="queryBtn">Tìm kiếm</button>
+        </div>
+        <div class="filters-bar">
+          <select id="filterLang"><option value="any">Tất cả ngôn ngữ</option><option value="vi">Tiếng Việt</option><option value="en">Tiếng Anh</option><option value="vi-en">Song ngữ</option></select>
+          <select id="filterDocType"><option value="">Tất cả loại</option><option value="sop">SOP</option><option value="guideline">Guideline</option><option value="form">Form</option><option value="template">Template</option><option value="manual">Manual</option><option value="urs">URS</option></select>
+        </div>
+      </div>
+      <div id="aiResult" class="ai-result"></div>
+    </div>
+
+    <!-- ===== DOCUMENTS ===== -->
+    <div id="page-documents" class="page">
+      <div class="card">
+        <h3>❆ Thư viện tài liệu</h3>
+        <div class="filters-bar">
+          <input type="text" id="docSearch" placeholder="Tìm theo mã hoặc tên..." style="flex:1;min-width:180px;">
+          <select id="docFilterLang"><option value="">Tất cả ngôn ngữ</option><option value="vi">Tiếng Việt</option><option value="en">Tiếng Anh</option><option value="vi-en">Song ngữ</option></select>
+          <select id="docFilterStatus"><option value="">Tất cả trạng thái</option><option value="draft">Draft</option><option value="indexed">Indexed</option><option value="reviewed">Reviewed</option><option value="approved_for_ai_use">Approved cho AI</option></select>
+          <button class="btn btn-sm btn-primary" onclick="searchDocuments()">Tìm</button>
+        </div>
+      </div>
+      <div class="card"><div id="docList"><span class="empty">❄ Chưa có tài liệu. Hãy upload tài liệu đầu tiên.</span></div></div>
+    </div>
+
+    <!-- ===== AUDIT ===== -->
+    <div id="page-audit" class="page">
+      <div class="card"><h3>✧ Nhật ký hoạt động (Audit Trail — ALCOA+)</h3><div id="auditList"><div class="loading">Đang tải...</div></div></div>
+    </div>
+
+    <!-- ===== SECURITY CHECK ===== -->
+    <div id="page-security" class="page">
+      <div class="card">
+        <h3>🔒 Kiểm tra bảo mật hệ thống</h3>
+        <p style="color:var(--text-soft);margin-bottom:16px;">Kiểm tra tự động các điểm bảo mật theo yêu cầu GMP Data Integrity.</p>
+        <button class="btn btn-sm btn-primary" onclick="runSecurityCheck()" id="secCheckBtn">Chạy kiểm tra bảo mật</button>
+        <div id="securityResults" style="margin-top:16px;"></div>
+      </div>
+      <div class="card">
+        <h3>Thông tin phiên bản</h3>
+        <p style="color:var(--text-soft);">GMP Validation Intelligence Dashboard — MVP 1.0</p>
+        <p style="color:var(--text-soft);">Chỉ dùng nội bộ. Không phải hồ sơ GMP chính thức.</p>
+        <p style="color:var(--text-soft);margin-top:8px;">AI output cần người có chuyên môn xem xét trước khi sử dụng.</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
