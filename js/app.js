@@ -21,7 +21,7 @@ const API = {
 // ============================================================
 // SUPABASE + AUTH
 // ============================================================
-let supabase = null;
+let sb = null;
 (function initSupabase(){
   function fail(msg){
     console.error('[INIT]', msg);
@@ -43,7 +43,7 @@ let supabase = null;
     return;
   }
   try {
-    supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
   } catch (e){
     fail('createClient lỗi: ' + e.message);
   }
@@ -68,10 +68,10 @@ async function handleLogin() {
   if (!email || !password) { errEl.textContent = 'Vui lòng nhập email và mật khẩu'; errEl.style.display = 'block'; return; }
   btn.textContent = 'Đang đăng nhập...'; btn.disabled = true; errEl.style.display = 'none';
 
-  if (!supabase) { errEl.textContent = 'Hệ thống chưa khởi tạo (xem lỗi cấu hình phía trên).'; errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return; }
+  if (!sb) { errEl.textContent = 'Hệ thống chưa khởi tạo (xem lỗi cấu hình phía trên).'; errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return; }
   let data, error;
   try {
-    ({ data, error } = await supabase.auth.signInWithPassword({ email, password }));
+    ({ data, error } = await sb.auth.signInWithPassword({ email, password }));
   } catch (e) {
     errEl.textContent = 'Không kết nối được Supabase: ' + e.message + ' — kiểm tra SUPABASE_URL và mạng.';
     errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return;
@@ -87,26 +87,26 @@ async function handleLogin() {
 
 async function handleLogout() {
   clearTimeout(sessionTimer);
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
   currentUser = null; currentSession = null; currentRoles = [];
   document.getElementById('app').style.display = 'none';
   document.getElementById('loginPage').style.display = 'flex';
 }
 
 async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sb.auth.getSession();
   if (session) { currentUser = session.user; currentSession = session; await loadUserRoles(); showApp(); resetSessionTimer(); }
 }
 
 // Tự động refresh token
-supabase.auth.onAuthStateChange((event, session) => {
+sb.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED' && session) { currentSession = session; resetSessionTimer(); }
   if (event === 'SIGNED_OUT') { handleLogout(); }
 });
 
 async function loadUserRoles() {
   if (!currentUser) return;
-  const { data } = await supabase.from('user_roles').select('roles(role_name,display_name)').eq('user_id', currentUser.id).eq('is_active', true);
+  const { data } = await sb.from('user_roles').select('roles(role_name,display_name)').eq('user_id', currentUser.id).eq('is_active', true);
   currentRoles = (data || []).map(r => r.roles.role_name);
 }
 
@@ -222,7 +222,7 @@ async function loadAuditTrail() {
   const el = document.getElementById('auditList');
   el.innerHTML = '<div class="loading">Đang tải nhật ký...</div>';
   try {
-    const { data, error } = await supabase.from('audit_log').select('id,user_email,user_role,action_type,"timestamp",input_summary,document_code,language_code').order('timestamp', { ascending: false }).limit(30);
+    const { data, error } = await sb.from('audit_log').select('id,user_email,user_role,action_type,"timestamp",input_summary,document_code,language_code').order('timestamp', { ascending: false }).limit(30);
     if (error) throw error;
     if (!data?.length) { el.innerHTML = '<span class="empty">Chưa có nhật ký nào.</span>'; return; }
     const actionMap = {document_upload:'Upload tài liệu',document_index:'Index tài liệu',document_review:'Review tài liệu',document_approve:'Duyệt tài liệu',ai_query:'Hỏi AI',ai_draft_protocol:'Viết đề cương',ai_check_protocol:'Check đề cương',user_login:'Đăng nhập',config_change:'Thay đổi cấu hình',security_event:'Sự kiện bảo mật'};
@@ -251,7 +251,7 @@ async function runSecurityCheck() {
   add(!html.includes('service_role'), 'Frontend không chứa service_role key', html.includes('service_role') ? 'NGUY HIỂM: Tìm thấy service_role trong HTML!' : 'Chỉ có anon key (an toàn)');
 
   // 2. Supabase kết nối
-  try { const { error } = await supabase.from('roles').select('id').limit(1); add(!error, 'Supabase RLS hoạt động', error ? error.message : 'Query qua RLS thành công'); }
+  try { const { error } = await sb.from('roles').select('id').limit(1); add(!error, 'Supabase RLS hoạt động', error ? error.message : 'Query qua RLS thành công'); }
   catch (e) { add(false, 'Supabase kết nối', e.message); }
 
   // 3. Webhook health
@@ -262,7 +262,7 @@ async function runSecurityCheck() {
   add(!!getToken(), 'JWT Token hợp lệ', getToken() ? 'Token có ' + getToken().length + ' ký tự' : 'Không có token!');
 
   // 5. Audit log ghi được
-  try { const { error } = await supabase.from('audit_log').select('id').limit(1); add(true, 'Audit log truy xuất được', 'Append-only log hoạt động'); }
+  try { const { error } = await sb.from('audit_log').select('id').limit(1); add(true, 'Audit log truy xuất được', 'Append-only log hoạt động'); }
   catch (e) { add(false, 'Audit log', e.message); }
 
   // 6. HTTPS
