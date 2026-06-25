@@ -8,6 +8,10 @@
 // CONFIG — Giá trị được GitHub Actions thay tự động từ Secrets
 // KHÔNG sửa trực tiếp ở đây
 // ============================================================
+// Bắt lỗi toàn cục — log rõ ràng, không để app "chết im"
+window.addEventListener('error', function (e) { console.error('[Lỗi ứng dụng]', e.message, (e.filename || '') + ':' + (e.lineno || '')); });
+window.addEventListener('unhandledrejection', function (e) { console.error('[Promise lỗi]', e.reason); });
+
 const CONFIG = window.APP_CONFIG || {};
 
 const API = {
@@ -94,12 +98,13 @@ async function handleLogout() {
 }
 
 async function checkSession() {
+  if (!sb) return;
   const { data: { session } } = await sb.auth.getSession();
   if (session) { currentUser = session.user; currentSession = session; await loadUserRoles(); showApp(); resetSessionTimer(); }
 }
 
 // Tự động refresh token
-sb.auth.onAuthStateChange((event, session) => {
+if (sb) sb.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED' && session) { currentSession = session; resetSessionTimer(); }
   if (event === 'SIGNED_OUT') { handleLogout(); }
 });
