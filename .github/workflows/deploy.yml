@@ -1,6 +1,9 @@
 # ============================================================
 # GitHub Actions: Build + Deploy GMP Validation Dashboard
-# Thay placeholder trong js/config.js bằng Secrets → Deploy Pages
+# Đọc REPOSITORY VARIABLES (vars.*) → thay vào js/config.js → Deploy Pages
+# (3 giá trị này KHÔNG bí mật: anon key công khai, URL & webhook công khai
+#  → đặt ở tab "Variables" là hợp lý. Nếu muốn dùng tab "Secrets" thì đổi
+#  vars.X thành secrets.X bên dưới.)
 # ============================================================
 name: Deploy to GitHub Pages
 
@@ -28,16 +31,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject secrets into js/config.js
+      - name: Inject config (from Variables) into js/config.js
         run: |
-          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" js/config.js
-          sed -i "s|__SUPABASE_ANON_KEY__|${{ secrets.SUPABASE_ANON_KEY }}|g" js/config.js
-          sed -i "s|__WEBHOOK_BASE__|${{ secrets.WEBHOOK_BASE }}|g" js/config.js
+          sed -i "s|__SUPABASE_URL__|${{ vars.SUPABASE_URL }}|g" js/config.js
+          sed -i "s|__SUPABASE_ANON_KEY__|${{ vars.SUPABASE_ANON_KEY }}|g" js/config.js
+          sed -i "s|__WEBHOOK_BASE__|${{ vars.WEBHOOK_BASE }}|g" js/config.js
+
+          # 1) Còn placeholder? (biến chưa tồn tại đúng tên ở tab Variables)
           if grep -q '__SUPABASE_URL__\|__SUPABASE_ANON_KEY__\|__WEBHOOK_BASE__' js/config.js; then
-            echo "❌ LỖI: Còn placeholder trong js/config.js. Kiểm tra lại Secrets."
+            echo "❌ Còn placeholder — chưa thay được. Kiểm tra tên Variables."
             exit 1
           fi
-          echo "✅ Đã thay toàn bộ placeholder trong js/config.js."
+          # 2) Giá trị rỗng? (thường do đặt nhầm ở tab Secrets thay vì Variables)
+          if grep -qE "SUPABASE_URL: *''" js/config.js; then
+            echo "❌ SUPABASE_URL RỖNG. Hãy tạo REPOSITORY VARIABLE (tab Variables) tên SUPABASE_URL (không phải Secret)."
+            exit 1
+          fi
+          if grep -qE "SUPABASE_ANON_KEY: *''" js/config.js; then
+            echo "❌ SUPABASE_ANON_KEY RỖNG. Kiểm tra Variable SUPABASE_ANON_KEY."
+            exit 1
+          fi
+          if grep -qE "WEBHOOK_BASE: *''" js/config.js; then
+            echo "❌ WEBHOOK_BASE RỖNG. Kiểm tra Variable WEBHOOK_BASE."
+            exit 1
+          fi
+          echo "✅ Đã nạp cấu hình từ Variables."
+          echo "→ Kiểm tra URL đã nạp:" $(grep -oE "SUPABASE_URL: *'[^']*'" js/config.js)
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
