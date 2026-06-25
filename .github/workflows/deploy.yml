@@ -1,6 +1,6 @@
 # ============================================================
 # GitHub Actions: Build + Deploy GMP Validation Dashboard
-# Thay placeholder bằng Secrets → Deploy lên GitHub Pages
+# Thay placeholder trong js/config.js bằng Secrets → Deploy Pages
 # ============================================================
 name: Deploy to GitHub Pages
 
@@ -28,16 +28,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject secrets into index.html
+      - name: Inject secrets into js/config.js
         run: |
-          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" index.html
-          sed -i "s|__SUPABASE_ANON_KEY__|${{ secrets.SUPABASE_ANON_KEY }}|g" index.html
-          sed -i "s|__WEBHOOK_BASE__|${{ secrets.WEBHOOK_BASE }}|g" index.html
-          if grep -q '__SUPABASE_URL__\|__SUPABASE_ANON_KEY__\|__WEBHOOK_BASE__' index.html; then
-            echo "❌ LỖI: Còn placeholder chưa thay. Kiểm tra lại Secrets."
+          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" js/config.js
+          sed -i "s|__SUPABASE_ANON_KEY__|${{ secrets.SUPABASE_ANON_KEY }}|g" js/config.js
+          sed -i "s|__WEBHOOK_BASE__|${{ secrets.WEBHOOK_BASE }}|g" js/config.js
+          if grep -q '__SUPABASE_URL__\|__SUPABASE_ANON_KEY__\|__WEBHOOK_BASE__' js/config.js; then
+            echo "❌ LỖI: Còn placeholder trong js/config.js. Kiểm tra lại Secrets."
             exit 1
           fi
-          echo "✅ Đã thay toàn bộ placeholder."
+          echo "✅ Đã thay toàn bộ placeholder trong js/config.js."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
