@@ -386,7 +386,33 @@ const API = {
 // ============================================================
 // SUPABASE + AUTH
 // ============================================================
-const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+let supabase = null;
+(function initSupabase(){
+  function fail(msg){
+    console.error('[INIT]', msg);
+    var e = document.getElementById('loginError');
+    if (e){ e.textContent = msg; e.style.display = 'block'; }
+    var b = document.getElementById('loginBtn');
+    if (b){ b.disabled = true; b.textContent = '⚠ Lỗi cấu hình'; }
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== 'function'){
+    fail('Thư viện Supabase chưa tải được — kiểm tra mạng có chặn cdn.jsdelivr.net không (hoặc tự host thư viện).');
+    return;
+  }
+  if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.slice(0,4) !== 'http' || CONFIG.SUPABASE_URL.indexOf('__') !== -1){
+    fail('SUPABASE_URL trống/sai trong Secret. Giá trị hiện tại: "' + CONFIG.SUPABASE_URL + '"');
+    return;
+  }
+  if (!CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_ANON_KEY.length < 20 || CONFIG.SUPABASE_ANON_KEY.indexOf('__') !== -1){
+    fail('SUPABASE_ANON_KEY trống/sai trong Secret.');
+    return;
+  }
+  try {
+    supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  } catch (e){
+    fail('createClient lỗi: ' + e.message);
+  }
+})();
 let currentUser = null, currentSession = null, currentRoles = [];
 
 // Session timeout (8 giờ = 28800000ms)
@@ -407,13 +433,21 @@ async function handleLogin() {
   if (!email || !password) { errEl.textContent = 'Vui lòng nhập email và mật khẩu'; errEl.style.display = 'block'; return; }
   btn.textContent = 'Đang đăng nhập...'; btn.disabled = true; errEl.style.display = 'none';
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (!supabase) { errEl.textContent = 'Hệ thống chưa khởi tạo (xem lỗi cấu hình phía trên).'; errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return; }
+  let data, error;
+  try {
+    ({ data, error } = await supabase.auth.signInWithPassword({ email, password }));
+  } catch (e) {
+    errEl.textContent = 'Không kết nối được Supabase: ' + e.message + ' — kiểm tra SUPABASE_URL và mạng.';
+    errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return;
+  }
   if (error) {
     errEl.textContent = error.message === 'Invalid login credentials' ? 'Sai email hoặc mật khẩu' : 'Lỗi: ' + error.message;
     errEl.style.display = 'block'; btn.textContent = '❄ Đăng nhập'; btn.disabled = false; return;
   }
   currentUser = data.user; currentSession = data.session;
-  await loadUserRoles(); showApp(); resetSessionTimer();
+  try { await loadUserRoles(); } catch (e) { console.warn('[roles]', e.message); }
+  showApp(); resetSessionTimer();
 }
 
 async function handleLogout() {
