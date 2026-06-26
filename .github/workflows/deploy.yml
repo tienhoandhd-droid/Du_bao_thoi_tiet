@@ -1,9 +1,9 @@
 # ============================================================
-# GitHub Actions: Build + Deploy GMP Validation Dashboard
-# Đọc REPOSITORY VARIABLES (vars.*) → thay vào js/config.js → Deploy Pages
-# (3 giá trị này KHÔNG bí mật: anon key công khai, URL & webhook công khai
-#  → đặt ở tab "Variables" là hợp lý. Nếu muốn dùng tab "Secrets" thì đổi
-#  vars.X thành secrets.X bên dưới.)
+# GitHub Actions: Build (Vite) + Deploy GMP Validation Dashboard (TS)
+# Dự án Vite nằm trong THƯ MỤC CON app/ → app vanilla ở gốc repo GIỮ NGUYÊN.
+# Đọc REPOSITORY VARIABLES (vars.*) → inject thành VITE_* lúc build → deploy app/dist.
+# 3 giá trị KHÔNG bí mật (anon key public-safe) → đặt ở tab "Variables".
+# Tên Variable GIỮ NGUYÊN như bản vanilla: SUPABASE_URL · SUPABASE_ANON_KEY · WEBHOOK_BASE
 # ============================================================
 name: Deploy to GitHub Pages
 
@@ -27,44 +27,80 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: app   # mọi bước 'run' chạy trong app/ (dự án Vite)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject config (from Variables) into js/config.js
+      # Guard 1: 3 Variables phải tồn tại, không rỗng, không còn placeholder.
+      # (rỗng thường do đặt nhầm ở tab Secrets thay vì Variables)
+      - name: Kiểm tra Variables (trước build)
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          WEBHOOK_BASE: ${{ vars.WEBHOOK_BASE }}
         run: |
-          sed -i "s|__SUPABASE_URL__|${{ vars.SUPABASE_URL }}|g" js/config.js
-          sed -i "s|__SUPABASE_ANON_KEY__|${{ vars.SUPABASE_ANON_KEY }}|g" js/config.js
-          sed -i "s|__WEBHOOK_BASE__|${{ vars.WEBHOOK_BASE }}|g" js/config.js
+          fail=0
+          check() {
+            name="$1"; val="$2"
+            if [ -z "$val" ]; then
+              echo "❌ $name RỖNG — tạo REPOSITORY VARIABLE (tab Variables, KHÔNG phải Secret) tên $name."
+              fail=1
+            elif printf '%s' "$val" | grep -qE '^__.*__$'; then
+              echo "❌ $name còn placeholder ('$val')."
+              fail=1
+            else
+              echo "✅ $name có giá trị."
+            fi
+          }
+          check SUPABASE_URL "$SUPABASE_URL"
+          check SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          check WEBHOOK_BASE "$WEBHOOK_BASE"
+          [ "$fail" = "0" ] || { echo "Dừng vì thiếu cấu hình."; exit 1; }
 
-          # 1) Còn placeholder? (biến chưa tồn tại đúng tên ở tab Variables)
-          if grep -q '__SUPABASE_URL__\|__SUPABASE_ANON_KEY__\|__WEBHOOK_BASE__' js/config.js; then
-            echo "❌ Còn placeholder — chưa thay được. Kiểm tra tên Variables."
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json   # lock nằm trong app/
+
+      - name: Cài dependencies (npm ci)
+        run: npm ci
+
+      # Vite bake biến VITE_* vào bundle lúc build (anon-key-only).
+      - name: Build (inject VITE_* từ Variables)
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_WEBHOOK_BASE: ${{ vars.WEBHOOK_BASE }}
+        run: npm run build
+
+      # Guard 2: bản build không còn placeholder kiểu cũ VÀ đã chứa giá trị thật.
+      - name: Kiểm tra dist (sau build)
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          if grep -rqE '__SUPABASE_URL__|__SUPABASE_ANON_KEY__|__WEBHOOK_BASE__' dist; then
+            echo "❌ Còn placeholder kiểu cũ trong dist."
             exit 1
           fi
-          # 2) Giá trị rỗng? (thường do đặt nhầm ở tab Secrets thay vì Variables)
-          if grep -qE "SUPABASE_URL: *''" js/config.js; then
-            echo "❌ SUPABASE_URL RỖNG. Hãy tạo REPOSITORY VARIABLE (tab Variables) tên SUPABASE_URL (không phải Secret)."
+          if ! grep -rqF "$VITE_SUPABASE_URL" dist; then
+            echo "❌ Không thấy giá trị SUPABASE_URL trong dist — inject thất bại."
             exit 1
           fi
-          if grep -qE "SUPABASE_ANON_KEY: *''" js/config.js; then
-            echo "❌ SUPABASE_ANON_KEY RỖNG. Kiểm tra Variable SUPABASE_ANON_KEY."
-            exit 1
-          fi
-          if grep -qE "WEBHOOK_BASE: *''" js/config.js; then
-            echo "❌ WEBHOOK_BASE RỖNG. Kiểm tra Variable WEBHOOK_BASE."
-            exit 1
-          fi
-          echo "✅ Đã nạp cấu hình từ Variables."
-          echo "→ Kiểm tra URL đã nạp:" $(grep -oE "SUPABASE_URL: *'[^']*'" js/config.js)
+          echo "✅ dist đã chứa cấu hình inject, không còn placeholder."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      # path tính từ GỐC repo (không theo working-directory)
+      - name: Upload artifact (app/dist)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'app/dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
