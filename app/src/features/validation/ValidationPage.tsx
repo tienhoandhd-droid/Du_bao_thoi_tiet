@@ -1,4 +1,5 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { ApiError, fetchCalculateReport, fetchCheckProtocol, fetchDraftProtocol } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type {
@@ -8,12 +9,21 @@ import type {
   ProtocolFinding,
 } from "@/types/api";
 
-type Tab = "draft" | "check" | "calculate";
+type Tab = "draft" | "check" | "calculate" | "glossary";
+
+type GlossaryEntry = {
+  id: string;
+  term: string;
+  definition: string;
+  category: string | null;
+  language_code: string | null;
+};
 
 const TAB_LABELS: Record<Tab, string> = {
   draft: "Viết đề cương",
   check: "Kiểm tra đề cương",
   calculate: "Tính toán",
+  glossary: "Tra cứu thuật ngữ",
 };
 
 const PROTOCOL_TYPES = [
@@ -41,9 +51,11 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 export function ValidationPage({
+  sb,
   token,
   onUnauthorized,
 }: {
+  sb: SupabaseClient;
   token: string;
   onUnauthorized: () => void;
 }) {
@@ -78,7 +90,114 @@ export function ValidationPage({
       {tab === "calculate" && (
         <CalculateTab token={token} onUnauthorized={onUnauthorized} />
       )}
+      {tab === "glossary" && <GlossaryTab sb={sb} />}
     </div>
+  );
+}
+
+function GlossaryTab({ sb }: { sb: SupabaseClient }) {
+  const [entries, setEntries] = useState<GlossaryEntry[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadGlossary() {
+      setLoading(true);
+      setError("");
+
+      const { data, error: queryError } = await sb
+        .from("glossary")
+        .select("id, term, definition, category, language_code")
+        .order("term", { ascending: true });
+
+      if (!active) return;
+
+      if (queryError) {
+        setEntries([]);
+        setError(queryError.message);
+      } else {
+        setEntries((data ?? []) as GlossaryEntry[]);
+      }
+
+      setLoading(false);
+    }
+
+    void loadGlossary();
+
+    return () => {
+      active = false;
+    };
+  }, [sb]);
+
+  const normalizedSearch = search.trim().toLocaleLowerCase("vi");
+  const filteredEntries = normalizedSearch
+    ? entries.filter((entry) => entry.term.toLocaleLowerCase("vi").includes(normalizedSearch))
+    : entries;
+
+  return (
+    <Panel title="Tra cứu thuật ngữ GMP">
+      <div className="space-y-4">
+        <FormField label="Tìm theo thuật ngữ">
+          <Input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Nhập thuật ngữ cần tìm..."
+            aria-label="Tìm theo thuật ngữ"
+          />
+        </FormField>
+
+        {loading ? <StateBlock>Đang tải danh mục thuật ngữ...</StateBlock> : null}
+
+        {!loading && error ? (
+          <Alert tone="danger">Không thể tải danh mục thuật ngữ: {error}</Alert>
+        ) : null}
+
+        {!loading && !error && entries.length === 0 ? (
+          <StateBlock>Chưa có thuật ngữ nào. Dữ liệu sẽ được cập nhật sau.</StateBlock>
+        ) : null}
+
+        {!loading && !error && entries.length > 0 && filteredEntries.length === 0 ? (
+          <StateBlock>Không tìm thấy thuật ngữ phù hợp.</StateBlock>
+        ) : null}
+
+        {!loading && !error && filteredEntries.length > 0 ? (
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Thuật ngữ</th>
+                  <th className="px-4 py-3 font-semibold">Định nghĩa</th>
+                  <th className="px-4 py-3 font-semibold">Danh mục</th>
+                  <th className="px-4 py-3 font-semibold">Ngôn ngữ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEntries.map((entry) => (
+                  <tr key={entry.id} className="border-t border-border/60">
+                    <td className="whitespace-nowrap px-4 py-3 align-top font-medium text-slate-900">
+                      {entry.term}
+                    </td>
+                    <td className="min-w-80 px-4 py-3 align-top leading-6 text-slate-700">
+                      {entry.definition}
+                    </td>
+                    <td className="px-4 py-3 align-top text-slate-600">
+                      {entry.category ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 align-top text-slate-600">
+                      {entry.language_code ?? "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
+    </Panel>
   );
 }
 

@@ -723,8 +723,8 @@ export default function App() {
         />
       ) : null}
 
-      {page === "validation" ? (
-        <ValidationPage token={token} onUnauthorized={() => void handleLogout()} />
+      {page === "validation" && sb ? (
+        <ValidationPage sb={sb} token={token} onUnauthorized={() => void handleLogout()} />
       ) : null}
     </Shell>
   );
