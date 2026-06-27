@@ -246,7 +246,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 - **✅ Chat 13 — Governance tường minh + Golden Dataset eval (2026-06-28).** Migration 016 (`eval_runs`/`eval_results`, RLS, index); seed 50 câu GMP (41 category); `governance-contract.md` 4 tầng + disclaimer; GovernancePage JSX thuần; `run_eval.py` Ragas đọc key từ env; `requirements_eval.txt` pin version; git `703d889`. *(PASS.)*
 - **✅ Chat 14 — Equipment-Aware + Glossary + Công cụ thẩm định (2026-06-28).** Migration **017** (`equipment_code` skip idempotent, `glossary` RLS 4 policies + index, UPDATE `vi→vi-en`); WF-03 Draft Protocol + WF-04 Check Protocol + WF-05 Calculation Helper (TKTL, Cách B byte-identical); `ValidationPage.tsx` 3 tab; `api.ts` 3 endpoint; commit `6e4c52c`, PR #1. *(PASS.)*
 - **✅ Chat 15 — Seed dữ liệu thẩm định + Glossary browser (2026-06-28).** Migration **018** (UPDATE template_structure IQ/OQ → 14-section GMP; INSERT TPL-PQ-001; seed 3 calculation_formulas ICH Q2(R2) + category; seed 2 equipment_registry); GlossaryTab tab 4 `ValidationPage.tsx` (Supabase client trực tiếp); WF-10 HOÃN → `docs/WF-10-postponed.md`; sửa lỗi schema Codex (template_code/template_name/category); commit `635f4e7`. *(PASS.)*
-- **🔲 Chat 16 — WF-10 POC Google Drive sync (JWT inline, không credential thứ 3).** POC ký JWT RS256 assertion inline trong HTTP Request expression (không Code node, không require/crypto); Migration **019** `drive_sync_log` (audit append-only cho sync Drive); TKTL WF-10 webhook `/drive-sync` → Cách B → ký JWT → Google Drive REST API → INSERT log; nếu POC thất bại → `docs/WF-10-attempt2.md` ghi lý do kỹ thuật + lối vòng tiếp theo.
+- **🔲 Chat 16 — WF-10 Google Drive sync (dùng credential "kết nối google").** Migration **019** `drive_sync_log` (RLS, audit append-only); TKTL WF-10 webhook `/drive-sync` → Cách B → Google Drive node dùng credential **"kết nối google"** (Google Service Account đã có sẵn) → INSERT drive_sync_log; không cần JWT inline POC.
 
 *Linh hoạt:* 09–10 là track frontend, 11–15 nghiêng backend/nghiệp vụ (gần độc lập). Chat ngắn có thể gộp (11+12, hoặc gập 13 vào 14).
 **HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow.
@@ -276,7 +276,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 ## 7. RÀNG BUỘC BẤT BIẾN
 | Ràng buộc | Yêu cầu |
 |-----------|---------|
-| Credentials n8n | Chỉ `GMP-check` + `OpenAl`. KHÔNG Variables n8n. Memory agentic đặt ở Postgres (không cần cred thứ 3) |
+| Credentials n8n | Ba credential được phép: `GMP-check` (Postgres, ID `0WcJFXEhwLXQhJmn`) + `OpenAl` (OpenAI, ID `r5CCCyYKeJDjnJ0A`) + **`kết nối google`** (Google Service Account — xác nhận ID thực tế qua MCP). KHÔNG tạo credential thứ tư. KHÔNG Variables n8n. Memory agentic ở Postgres. |
 | Deploy frontend | GitHub web (upload + Actions), **không dòng lệnh**. Build TS chạy trong Actions (repo public → không giới hạn phút) |
 | Local-dev | **Thuần GitHub web (free)** — không máy local. Claude build-thử thay, chỉ giao bản xanh |
 | Bảo mật key | Không key bí mật (service-role/OpenAI/JWT-secret) trong frontend/source; anon key được phép |
