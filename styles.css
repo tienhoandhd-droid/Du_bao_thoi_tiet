@@ -205,9 +205,11 @@
     }
     .sources-table td, .doc-table td { padding: 10px 12px; border-bottom: 1px solid var(--glass-border); }
     .doc-table tr:hover { background: rgba(137,194,232,0.06); }
-    .source-badge, .status-badge, .lang-badge {
+    .source-badge, .status-badge, .lang-badge, .citation-badge {
       display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700;
     }
+    .citation-badge.citation-grounded   { background: rgba(82,197,160,0.12); color: var(--mint); }
+    .citation-badge.citation-ungrounded { background: rgba(232,184,75,0.12); color: var(--gold); }
     .source-badge.internal_sop { background: rgba(82,197,160,0.12); color: var(--mint); }
     .source-badge.guideline { background: rgba(58,134,199,0.12); color: var(--crystal); }
     .source-badge.equipment_doc { background: rgba(232,184,75,0.12); color: var(--gold); }

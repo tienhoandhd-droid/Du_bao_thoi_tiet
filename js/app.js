@@ -189,8 +189,13 @@ async function handleQuery() {
     if (r.language_warning) h += `<div class="warning-banner">🌐 ${r.language_warning}</div>`;
     h += `<div class="answer">${escapeHtml(r.answer)}</div>`;
     if (r.sources?.length) {
-      h += `<div class="card"><h3>Nguồn tham chiếu</h3><table class="sources-table"><thead><tr><th>#</th><th>Mã tài liệu</th><th>Phiên bản</th><th>Ngôn ngữ</th><th>Trang</th><th>Mục</th><th>Loại</th><th>Điểm</th></tr></thead><tbody>`;
-      r.sources.forEach((s,i) => { h += `<tr><td>${i+1}</td><td><strong>${s.document_code||'N/A'}</strong></td><td>${s.version||'-'}</td><td><span class="lang-badge">${s.language_code||'-'}</span></td><td>${s.page_number||'-'}</td><td>${s.section_code||''} ${s.section_title||''}</td><td><span class="source-badge ${(s.source_type||'').replace(/-/g,'_')}">${s.source_type||'-'}</span></td><td>${(s.relevance_score||0).toFixed(2)}</td></tr>`; });
+      h += `<div class="card"><h3>Nguồn tham chiếu</h3><table class="sources-table"><thead><tr><th>#</th><th>Mã tài liệu</th><th>Phiên bản</th><th>Ngôn ngữ</th><th>Trang</th><th>Mục</th><th>Loại</th><th>Điểm</th><th>Trạng thái</th></tr></thead><tbody>`;
+      r.sources.forEach((s,i) => {
+        const groundedBadge = s.grounded !== false
+          ? '<span class="citation-badge citation-grounded">✓ Xác minh</span>'
+          : '<span class="citation-badge citation-ungrounded">⚠ Chưa xác minh</span>';
+        h += `<tr><td>${i+1}</td><td><strong>${s.document_code||'N/A'}</strong></td><td>${s.version||'-'}</td><td><span class="lang-badge">${s.language_code||'-'}</span></td><td>${s.page_number||'-'}</td><td>${s.section_code||''} ${s.section_title||''}</td><td><span class="source-badge ${(s.source_type||'').replace(/-/g,'_')}">${s.source_type||'-'}</span></td><td>${(s.relevance_score||0).toFixed(2)}</td><td>${groundedBadge}</td></tr>`;
+      });
       h += '</tbody></table></div>';
     }
     h += `<div class="disclaimer">⚕ ${r.disclaimer||'Nội dung do AI tạo, cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức.'}</div>`;
