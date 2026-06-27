@@ -79,6 +79,41 @@ const DOC_STATUS_OPTIONS = [
   { value: "approved_for_ai_use", label: "Approved cho AI" },
 ];
 
+const SQL_INJECTION_PATTERNS = [
+  /--|\/\*|\*\//,
+  /;\s*(select|insert|update|delete|drop|alter|create|truncate)\b/i,
+  /\bunion\s+(all\s+)?select\b/i,
+  /\b(insert\s+into|delete\s+from|update\s+\S+\s+set)\b/i,
+  /\b(drop|alter|create|truncate)\s+table\b/i,
+];
+
+const GOVERNANCE_LAYERS = [
+  {
+    id: "input",
+    title: "Tầng 1 · Input",
+    gate: "Query không rỗng, tối đa 500 ký tự và không chứa mẫu SQL injection rõ ràng.",
+    failure: "Không đạt: từ chối trước retrieval và không gọi model.",
+  },
+  {
+    id: "retrieval",
+    title: "Tầng 2 · Retrieval",
+    gate: "Chỉ dùng nguồn approved_for_ai_use=true; mọi tool truy hồi phải đi qua hybrid_search_v3.",
+    failure: "Không đủ nguồn: trả trạng thái thiếu căn cứ, không dùng kiến thức ngoài kho đã duyệt.",
+  },
+  {
+    id: "generation",
+    title: "Tầng 3 · Generation",
+    gate: "Prompt chỉ cho phép trả lời từ nguồn đã truy hồi, không sáng tạo và bắt buộc có disclaimer.",
+    failure: "Nguồn không đủ: nói rõ không tìm thấy và chuyển người có chuyên môn kiểm tra.",
+  },
+  {
+    id: "output",
+    title: "Tầng 4 · Output",
+    gate: "Chỉ phát hành bình thường khi grounded_pct ≥ 0.60 và confidence tối thiểu MEDIUM.",
+    failure: "Không đạt: hạ cấp hoặc chặn kết luận, vẫn hiển thị nguồn và disclaimer.",
+  },
+] as const;
+
 function envStatusLabel(status: EnvCheck["status"]): string {
   switch (status) {
     case "ok":
@@ -187,6 +222,16 @@ function roleLabel(role: string): string {
 
 function normalizeDocuments(rows: DocumentRecord[]): DocumentRecord[] {
   return rows.filter((row) => Boolean(row?.id));
+}
+
+function validateGovernedQuery(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return "Câu hỏi không được để trống.";
+  if (trimmed.length > 500) return "Câu hỏi không được vượt quá 500 ký tự.";
+  if (SQL_INJECTION_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "Câu hỏi chứa mẫu lệnh SQL không được phép.";
+  }
+  return null;
 }
 
 export default function App() {
@@ -437,7 +482,12 @@ export default function App() {
     async (event?: FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
       const trimmed = query.trim();
-      if (!trimmed) return;
+      const validationError = validateGovernedQuery(trimmed);
+      if (validationError) {
+        setQueryResult(null);
+        setQueryError(validationError);
+        return;
+      }
 
       setQueryLoading(true);
       setQueryError("");
@@ -1041,6 +1091,7 @@ function AiSearchPage({
           <div className="flex flex-col gap-3 md:flex-row">
             <Input
               className="min-h-12 flex-1"
+              maxLength={500}
               placeholder="Ví dụ: Điều kiện tiên quyết IQ nằm ở SOP nào?"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
@@ -1420,6 +1471,39 @@ function SecurityPage({
         <p className="mt-2 text-sm text-muted-foreground">
           AI output cần người có chuyên môn xem xét trước khi dùng.
         </p>
+      </Panel>
+
+      <Panel title="Hợp đồng governance 4 tầng">
+        <p className="mb-4 text-sm leading-6 text-muted-foreground">
+          Bốn cổng được áp dụng nối tiếp. Frontend chỉ kiểm tra sớm; n8n và
+          PostgreSQL là điểm thực thi có thẩm quyền.
+        </p>
+        <div className="space-y-3">
+          {GOVERNANCE_LAYERS.map((layer, index) => (
+            <details
+              key={layer.id}
+              className="group rounded-2xl border border-border bg-white px-4 py-3 shadow-sm"
+              open={index === 0}
+            >
+              <summary className="cursor-pointer list-none font-semibold text-slate-900 marker:hidden">
+                <span className="flex items-center justify-between gap-3">
+                  {layer.title}
+                  <span aria-hidden="true" className="text-primary group-open:rotate-45">
+                    +
+                  </span>
+                </span>
+              </summary>
+              <div className="mt-3 space-y-2 border-t border-border/60 pt-3 text-sm leading-6">
+                <p className="text-slate-700">{layer.gate}</p>
+                <p className="text-muted-foreground">{layer.failure}</p>
+              </div>
+            </details>
+          ))}
+        </div>
+        <Alert tone="info">
+          Nội dung do AI tạo từ nguồn đã duyệt, cần người có chuyên môn xem xét
+          trước khi dùng cho quyết định hoặc hồ sơ GMP chính thức.
+        </Alert>
       </Panel>
     </div>
   );
