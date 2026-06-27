@@ -3,9 +3,15 @@ import type {
   AssistantQueryRequest,
   AssistantQueryResponse,
   AuditEntry,
+  CalculateReportRequest,
+  CalculateReportResponse,
+  CheckProtocolRequest,
+  CheckProtocolResponse,
   DashboardHealthResponse,
   DocumentSearchRequest,
   DocumentSearchResponse,
+  DraftProtocolRequest,
+  DraftProtocolResponse,
   RagQueryRequest,
   RagQueryResponse,
 } from "@/types/api";
@@ -19,6 +25,9 @@ export const apiEndpoints = {
   ingestDocument: buildWebhookUrl("/ingest-document"),
   searchDocs: buildWebhookUrl("/search-docs"),
   approveDocument: buildWebhookUrl("/approve-document"),
+  draftProtocol: buildWebhookUrl("/draft-protocol"),
+  checkProtocol: buildWebhookUrl("/check-protocol"),
+  calculateReport: buildWebhookUrl("/calculate-report"),
 } as const;
 
 export type ApiEndpointKey = keyof typeof apiEndpoints;
@@ -26,6 +35,9 @@ export type ApiRequestBody =
   | RagQueryRequest
   | AssistantQueryRequest
   | DocumentSearchRequest
+  | DraftProtocolRequest
+  | CheckProtocolRequest
+  | CalculateReportRequest
   | Record<string, unknown>
   | undefined;
 
@@ -138,6 +150,27 @@ export async function fetchAssistant(
     body,
     token,
   });
+}
+
+export async function fetchDraftProtocol(
+  body: DraftProtocolRequest,
+  token: string,
+): Promise<DraftProtocolResponse> {
+  return apiCall<DraftProtocolResponse>("draftProtocol", { method: "POST", body, token });
+}
+
+export async function fetchCheckProtocol(
+  body: CheckProtocolRequest,
+  token: string,
+): Promise<CheckProtocolResponse> {
+  return apiCall<CheckProtocolResponse>("checkProtocol", { method: "POST", body, token });
+}
+
+export async function fetchCalculateReport(
+  body: CalculateReportRequest,
+  token: string,
+): Promise<CalculateReportResponse> {
+  return apiCall<CalculateReportResponse>("calculateReport", { method: "POST", body, token });
 }
 
 export type { AuditEntry };

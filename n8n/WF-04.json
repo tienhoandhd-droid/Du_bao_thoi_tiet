@@ -1,0 +1,451 @@
+{
+  "name": "TKTL WF-04 Check Protocol",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-protocol",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "016083c1-f87b-4831-b59d-a797e6af1667",
+      "name": "Webhook Check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        144
+      ],
+      "webhookId": "check-protocol"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers=$('Webhook Check').first().json.headers||{};const body=$('Webhook Check').first().json.body||{};\nconst token=(headers.authorization||headers.Authorization||'').replace('Bearer ','');\nif(!token) return [{json:{error:true,message:'Thiếu token',status:401}}];\nlet userId;try{userId=JSON.parse(Buffer.from(token.split('.')[1],'base64').toString()).sub;if(!userId)throw 0;}catch(e){return [{json:{error:true,message:'Token không hợp lệ',status:401}}];}\nif(!body.document_text&&!body.protocol_content) return [{json:{error:true,message:'Thiếu nội dung đề cương (document_text)',status:400}}];\nconst protocolType=body.protocol_type||'iq';\nif(!/^[a-z0-9_]{1,30}$/.test(protocolType)) return [{json:{error:true,message:'protocol_type không hợp lệ',status:400}}];\nreturn [{json:{error:false,user_id:userId,document_text:body.document_text||body.protocol_content,protocol_type:protocolType,equipment_code:body.equipment_code||'',template_id:body.template_id||null,document_language:body.document_language||'vi'}}];"
+      },
+      "id": "5a03b5be-8586-4237-a77e-464176126fbd",
+      "name": "Parse + Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a08284da-669e-485b-b6e2-0614b338123c",
+      "name": "OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        544,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": "={{ $json.status||400 }}"
+        }
+      },
+      "id": "d1603356-0924-4b97-9858-1a9a8fbed5b0",
+      "name": "Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.id WHERE ur.user_id='{{ $('Parse + Auth').first().json.user_id }}'::uuid AND ur.is_active=true;\nSELECT template_structure FROM validation_templates WHERE protocol_type='{{ $('Parse + Auth').first().json.protocol_type }}' AND is_active=true ORDER BY version DESC LIMIT 1;\nSELECT prompt_text FROM prompt_versions WHERE prompt_name='protocol_checker' AND is_active=true LIMIT 1;",
+        "options": {}
+      },
+      "id": "b2a30fe7-b0ce-49cd-a5b6-be0c5f38becd",
+      "name": "PG: Load Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        768,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results=$input.all().map(i=>i.json);\nconst prev=$('Parse + Auth').first().json;\nconst roles=results.filter(r=>r.role_name).map(r=>r.role_name);\nif(!roles.some(r=>['admin','qa_manager','validation'].includes(r))) return [{json:{error:true,message:'Không có quyền check đề cương',status:403}}];\n\n// Layer 1: Rule-based check (không AI)\nconst text=prev.document_text;\nconst ruleFindings=[];\nif(!text.match(/mục đích|purpose/i)) ruleFindings.push({severity:'major',layer:'rule_check',location:'Document',finding:'Thiếu mục Mục đích',risk:'Đề cương không rõ mục tiêu',recommendation:'Thêm section Mục đích'});\nif(!text.match(/phạm vi|scope/i)) ruleFindings.push({severity:'major',layer:'rule_check',location:'Document',finding:'Thiếu mục Phạm vi',risk:'Không rõ phạm vi áp dụng',recommendation:'Thêm section Phạm vi'});\nif(!text.match(/tiêu chí|acceptance|criteria/i)) ruleFindings.push({severity:'critical',layer:'rule_check',location:'Document',finding:'Thiếu tiêu chí chấp nhận',risk:'Không có cơ sở kết luận đạt/không đạt',recommendation:'Thêm tiêu chí chấp nhận có căn cứ'});\nif(!text.match(/trách nhiệm|responsibility/i)) ruleFindings.push({severity:'major',layer:'rule_check',location:'Document',finding:'Thiếu mục Trách nhiệm',risk:'Không rõ ai thực hiện',recommendation:'Thêm section Trách nhiệm'});\n\n// Layer 2: Template comparison\nconst tpl=results.find(r=>r.template_structure);\nlet templateFindings=[];\nif(tpl?.template_structure){\n  const sections=typeof tpl.template_structure==='string'?JSON.parse(tpl.template_structure):tpl.template_structure;\n  sections.filter(s=>s.required).forEach(s=>{\n    if(!text.toLowerCase().includes(s.title.toLowerCase())) templateFindings.push({severity:'major',layer:'template_check',location:s.section,finding:'Thiếu section: '+s.title,risk:'Không đúng template đã duyệt',recommendation:'Thêm section '+s.section+' '+s.title});\n  });\n}\n\nconst prompt=results.find(r=>r.prompt_text);\nconst docSnippet=text.substring(0,6000);\nconst messages=[{role:'system',content:prompt?.prompt_text||'Kiểm tra đề cương GMP. Trả JSON tiếng Việt.'},{role:'user',content:'=== ĐỀ CƯƠNG CẦN KIỂM TRA ===\\nLoại: '+prev.protocol_type.toUpperCase()+'\\nThiết bị: '+prev.equipment_code+'\\nNgôn ngữ: '+prev.document_language+'\\n\\n'+docSnippet+'\\n\\n=== FINDINGS TỪ RULE-CHECK ===\\n'+JSON.stringify(ruleFindings.concat(templateFindings))+'\\n\\nHãy kiểm tra semantic (Layer 4): nội dung phù hợp thiết bị không, test method hợp lý không, acceptance criteria đo được không. Trả JSON.'}];\n\nreturn [{json:{...prev,messages,ruleFindings,templateFindings,primary_role:roles[0]}}];"
+      },
+      "id": "04c85fc0-ae84-4974-9ca7-279cb1792371",
+      "name": "Layer 1-2 Check + Build AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b73ab252-1da6-45d6-8cfa-720d867a6ff7",
+      "name": "Role OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "c4db061f-9b3f-40ba-ba12-a8481a210991",
+      "name": "Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'gpt-4o-mini',messages:$json.messages,temperature:0.1,max_tokens:2500}) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "ef1862c3-ac55-488a-a215-fde444543b63",
+      "name": "OpenAI: Semantic Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ai=$input.first().json;\nconst prev=$('Layer 1-2 Check + Build AI').first().json;\nconst aiText=ai.choices?.[0]?.message?.content||'{}';\nlet aiReview={};\ntry{const cleaned=aiText.replace(/```json|```/g,'').trim();aiReview=JSON.parse(cleaned);}catch(e){aiReview={overall_status:'CONDITIONAL',critical_findings:[],major_findings:[],minor_findings:[]};}\n\n// Merge all findings\nconst allFindings=[...prev.ruleFindings,...prev.templateFindings,...(aiReview.critical_findings||[]).map(f=>({...f,severity:'critical',layer:'semantic_review'})),...(aiReview.major_findings||[]).map(f=>({...f,severity:'major',layer:'semantic_review'})),...(aiReview.minor_findings||[]).map(f=>({...f,severity:'minor',layer:'semantic_review'}))];\n\nconst critical=allFindings.filter(f=>f.severity==='critical').length;\nconst major=allFindings.filter(f=>f.severity==='major').length;\nconst minor=allFindings.filter(f=>f.severity==='minor').length;\nconst status=critical>0?'FAIL':major>2?'CONDITIONAL':'PASS';\nconst score=Math.max(0,100-critical*25-major*10-minor*3);\n\nconst escaped=JSON.stringify(allFindings).replace(/'/g,\"''\");\nconst sql=`INSERT INTO protocol_reviews(user_id,protocol_type,equipment_code,document_language,overall_status,overall_score,critical_count,major_count,minor_count,model_used,prompt_version) VALUES('${prev.user_id}'::uuid,'${prev.protocol_type}','${prev.equipment_code}','${prev.document_language}','${status}',${score},${critical},${major},${minor},'gpt-4o-mini','v1.0') RETURNING id;\\nSELECT write_audit_log('${prev.user_id}'::uuid,NULL,'${prev.primary_role}','ai_check_protocol'::audit_action,'Check ${prev.protocol_type.toUpperCase()} - ${prev.equipment_code} → ${status}');`;\n\nreturn [{json:{sql,response:{success:true,overall_status:status,overall_score:score,critical_count:critical,major_count:major,minor_count:minor,findings:allFindings,disclaimer:'⚕ Kết quả kiểm tra do AI thực hiện, cần người có chuyên môn xác nhận.'}}}];"
+      },
+      "id": "267bd51e-819a-4e37-aba3-e0fe50edd563",
+      "name": "Merge Findings + Save SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "id": "ddc6fbb2-c68b-4aaa-a2c5-82f702dcbbec",
+      "name": "PG: Save Review + Audit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1888,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Merge Findings + Save SQL').first().json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "8de8a0d9-429d-4387-8dca-4cd60d9f5fba",
+      "name": "Check Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkdHRjY3p0anRyY2F6dGpna290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0Nzc3MDAsImV4cCI6MjA5ODA1MzcwMH0.27_xCRuqqW1wUGtLzMYac0YFlG8aOMO5Mem5LZCbZI8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        144
+      ],
+      "id": "029f501e-8a5c-448a-9dca-3b4ee0b0b07b",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        0
+      ],
+      "id": "456f1b30-1317-4029-9511-9b178e52265b",
+      "name": "Auth 401"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Check": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Auth": {
+      "main": [
+        [
+          {
+            "node": "OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OK?": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Load Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Load Data": {
+      "main": [
+        [
+          {
+            "node": "Layer 1-2 Check + Build AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Layer 1-2 Check + Build AI": {
+      "main": [
+        [
+          {
+            "node": "Role OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Role OK?": {
+      "main": [
+        [
+          {
+            "node": "Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI: Semantic Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Semantic Review": {
+      "main": [
+        [
+          {
+            "node": "Merge Findings + Save SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Findings + Save SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Save Review + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Save Review + Audit": {
+      "main": [
+        [
+          {
+            "node": "Check Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + Auth",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "fb751091-66e1-4324-ba60-9757a3283692",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "tags": []
+}

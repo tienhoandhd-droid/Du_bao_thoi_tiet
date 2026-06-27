@@ -1,0 +1,451 @@
+{
+  "name": "TKTL WF-03 Draft Protocol",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "draft-protocol",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "241e7dd5-7dd3-4aef-9a48-42f78c8fb479",
+      "name": "Webhook Draft",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        144
+      ],
+      "webhookId": "draft-protocol"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $('Webhook Draft').first().json.headers || {};\nconst body = $('Webhook Draft').first().json.body || {};\nconst token = (headers.authorization || headers.Authorization || '').replace('Bearer ', '');\nif (!token) return [{json:{error:true,message:'Thiếu token',status:401}}];\nlet userId;\ntry { userId = JSON.parse(Buffer.from(token.split('.')[1],'base64').toString()).sub; if(!userId) throw 0; } catch(e) { return [{json:{error:true,message:'Token không hợp lệ',status:401}}]; }\nif (!body.protocol_type || !body.equipment_code) return [{json:{error:true,message:'Thiếu protocol_type hoặc equipment_code',status:400}}];\nif (!/^[a-z0-9_]{1,30}$/.test(body.protocol_type)) return [{json:{error:true,message:'protocol_type không hợp lệ (chỉ a-z, 0-9, _)',status:400}}];\nif (!/^[A-Za-z0-9\\-_\\.]{1,50}$/.test(body.equipment_code)) return [{json:{error:true,message:'equipment_code không hợp lệ',status:400}}];\nconst validLangModes = ['vi','en','vi-en','other'];\nconst langMode = body.language_mode || 'vi';\nif (!validLangModes.includes(langMode)) return [{json:{error:true,message:'language_mode không hợp lệ',status:400}}];\nreturn [{json:{error:false,user_id:userId,protocol_type:body.protocol_type,equipment_code:body.equipment_code,equipment_name:body.equipment_name||'',template_id:body.template_id||null,language_mode:langMode,special_requirements:body.special_requirements||'',manufacturer:body.manufacturer||'',model:body.model||'',location:body.location||'',intended_use:body.intended_use||''}}];"
+      },
+      "id": "40f40e55-4203-4ff2-982a-9e11995301fe",
+      "name": "Parse + Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0e6c31b-3ccf-4d3d-ae69-b5cb4f396be1",
+      "name": "OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        544,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "963e53ad-6da5-433d-b786-b5b1c7cf78b4",
+      "name": "Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.id WHERE ur.user_id='{{ $json.user_id }}'::uuid AND ur.is_active=true;\nSELECT template_structure, template_content FROM validation_templates WHERE protocol_type='{{ $json.protocol_type }}' AND language_code='{{ $json.language_mode }}'::language_code AND is_active=true ORDER BY version DESC LIMIT 1;\nSELECT * FROM equipment_registry WHERE equipment_code='{{ $json.equipment_code }}' AND is_active=true LIMIT 1;\nSELECT prompt_text FROM prompt_versions WHERE prompt_name='protocol_writer' AND is_active=true LIMIT 1;",
+        "options": {}
+      },
+      "id": "61d7c367-0b72-438d-8aa1-9c7c27e7ce4e",
+      "name": "PG: Load Template + Equipment + Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        768,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all().map(i=>i.json);\nconst prev = $('Parse + Auth').first().json;\n\n// Kiểm tra role\nconst roles = results.filter(r=>r.role_name).map(r=>r.role_name);\nif (!roles.some(r=>['admin','qa_manager','validation'].includes(r))) return [{json:{error:true,message:'Không có quyền viết đề cương',status:403}}];\n\n// Lấy template\nconst tpl = results.find(r=>r.template_structure);\nconst eq = results.find(r=>r.equipment_code);\nconst prompt = results.find(r=>r.prompt_text);\n\nlet context = `=== THÔNG TIN THIẾT BỊ ===\\nMã: ${prev.equipment_code}\\nTên: ${prev.equipment_name || eq?.equipment_name || 'N/A'}\\nNSX: ${prev.manufacturer || eq?.manufacturer || 'N/A'}\\nModel: ${prev.model || eq?.model || 'N/A'}\\nVị trí: ${prev.location || eq?.location || 'N/A'}\\nCông dụng: ${prev.intended_use || eq?.intended_use || 'N/A'}\\nLoại đề cương: ${prev.protocol_type.toUpperCase()}`;\n\nif (tpl?.template_structure) context += `\\n\\n=== TEMPLATE CẤU TRÚC ===\\n${JSON.stringify(tpl.template_structure, null, 2)}`;\nif (prev.special_requirements) context += `\\n\\n=== YÊU CẦU ĐẶC BIỆT ===\\n${prev.special_requirements}`;\n\nconst messages = [\n  {role:'system',content:prompt?.prompt_text || 'Bạn là GMP Protocol Writer. Viết đề cương bằng tiếng Việt theo template.'},\n  {role:'user',content:context + '\\n\\nHãy viết đề cương ' + prev.protocol_type.toUpperCase() + ' cho thiết bị này theo template. Output bằng tiếng Việt.'}\n];\n\nreturn [{json:{...prev,messages,primary_role:roles[0]}}];"
+      },
+      "id": "9a84edc4-8384-4dff-b3c5-e25217e90134",
+      "name": "Build AI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8fbfbdc-0f08-4dd6-8ee9-2b58968bf40e",
+      "name": "Role OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "a8485fba-be98-4027-b5c0-2eded5b0548b",
+      "name": "Role Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'gpt-4o-mini',messages:$json.messages,temperature:0.2,max_tokens:3000}) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "637de53a-2641-40d8-8e9f-9a233f284fdb",
+      "name": "OpenAI: Draft Protocol",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ai = $input.first().json;\nconst prev = $('Build AI Request').first().json;\nconst content = ai.choices?.[0]?.message?.content || 'Không thể tạo đề cương.';\n\n// Save SQL\nconst escaped = content.replace(/'/g,\"''\");\nconst sql = `INSERT INTO generated_protocols (user_id,protocol_type,equipment_code,language_mode,input_data,generated_content,model_used,prompt_version,status) VALUES ('${prev.user_id}'::uuid,'${prev.protocol_type}','${prev.equipment_code}','${prev.language_mode}','${JSON.stringify({equipment_name:prev.equipment_name,manufacturer:prev.manufacturer,model:prev.model}).replace(/'/g,\"''\")}'::jsonb,'${escaped}','gpt-4o-mini','v1.0','draft') RETURNING id;\\nSELECT write_audit_log('${prev.user_id}'::uuid,NULL,'${prev.primary_role}','ai_draft_protocol'::audit_action,'Draft ${prev.protocol_type.toUpperCase()} cho ${prev.equipment_code}');`;\n\nreturn [{json:{sql,response:{success:true,protocol_type:prev.protocol_type,equipment_code:prev.equipment_code,content,disclaimer:'⚕ [AI-DRAFT] Nội dung do AI tạo, cần người có chuyên môn xem xét và chỉnh sửa trước khi sử dụng.'}}}];"
+      },
+      "id": "9bfbe8ab-e700-4585-be60-4cc8ae1c50e8",
+      "name": "Format + Save SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "id": "a32784c2-7bd2-416e-8e1c-9344eece0695",
+      "name": "PG: Save Protocol + Audit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1888,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Format + Save SQL').first().json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "58873268-f3e9-4d26-9a7d-4f87bf7b2e4c",
+      "name": "Draft Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkdHRjY3p0anRyY2F6dGpna290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0Nzc3MDAsImV4cCI6MjA5ODA1MzcwMH0.27_xCRuqqW1wUGtLzMYac0YFlG8aOMO5Mem5LZCbZI8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        144
+      ],
+      "id": "fac4234e-648c-426d-80d4-ba9f76657d53",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        0
+      ],
+      "id": "c3d8ffb8-e68d-4191-9f86-2555fb5129f4",
+      "name": "Auth 401"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Draft": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Auth": {
+      "main": [
+        [
+          {
+            "node": "OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OK?": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Load Template + Equipment + Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Load Template + Equipment + Prompt": {
+      "main": [
+        [
+          {
+            "node": "Build AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Request": {
+      "main": [
+        [
+          {
+            "node": "Role OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Role OK?": {
+      "main": [
+        [
+          {
+            "node": "Role Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI: Draft Protocol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Draft Protocol": {
+      "main": [
+        [
+          {
+            "node": "Format + Save SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format + Save SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Save Protocol + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Save Protocol + Audit": {
+      "main": [
+        [
+          {
+            "node": "Draft Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + Auth",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "66c5e44a-0859-44b9-a868-e5936aa0d13e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "tags": []
+}

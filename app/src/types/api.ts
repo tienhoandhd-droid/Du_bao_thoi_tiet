@@ -129,3 +129,87 @@ export interface AssistantQueryResponse {
   sources?: AssistantCitation[];
   disclaimer?: string;
 }
+
+export interface DraftProtocolRequest {
+  protocol_type: string;
+  equipment_code: string;
+  equipment_name?: string;
+  template_id?: string | null;
+  language_mode?: string;
+  special_requirements?: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  intended_use?: string;
+}
+
+export interface DraftProtocolResponse {
+  success?: boolean;
+  error?: string;
+  protocol_type?: string;
+  equipment_code?: string;
+  content?: string;
+  disclaimer?: string;
+}
+
+export interface CheckProtocolRequest {
+  document_text: string;
+  protocol_type?: string;
+  equipment_code?: string;
+  document_language?: string;
+}
+
+export interface ProtocolFinding {
+  severity?: string;
+  layer?: string;
+  location?: string;
+  finding?: string;
+  risk?: string;
+  recommendation?: string;
+}
+
+export interface CheckProtocolResponse {
+  success?: boolean;
+  error?: string;
+  overall_status?: string;
+  overall_score?: number;
+  critical_count?: number;
+  major_count?: number;
+  minor_count?: number;
+  findings?: ProtocolFinding[];
+  disclaimer?: string;
+}
+
+export interface CalculationStep {
+  step?: string;
+  detail?: string;
+}
+
+export interface CalculateReportRequest {
+  formula_code: string;
+  input_data: Record<string, number | string>;
+  job_name?: string;
+  acceptance_criteria?: {
+    operator: string;
+    value: number;
+    unit?: string;
+    source?: string;
+  } | null;
+}
+
+export interface CalculateReportResponse {
+  success?: boolean;
+  error?: string;
+  formula?: string;
+  formula_code?: string;
+  formula_version?: string;
+  formula_display?: string;
+  reference_source?: string;
+  input?: Record<string, unknown>;
+  result?: number;
+  steps?: CalculationStep[];
+  pass_fail?: string;
+  criteria_note?: string;
+  interpretation?: string;
+  disclaimer?: string;
+}
