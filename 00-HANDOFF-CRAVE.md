@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-28 — sau **F4 Frontend React parity**: 5 trang React + AssistantPanel (WF-12) + vá XSS + build xanh. **PASS.** *(Platform Alignment 2026-06-27: Migration 015 + 9 WF + CI guard. Chat 11: WF-12 agentic, Migration 014. Chat 10: Citation Grounding PASS, Migration 013.)*
+**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 13 Governance + Golden Dataset eval**: Migration 016 (`eval_runs`/`eval_results`) applied, seed 50 câu GMP (41 category), hợp đồng 4 tầng, GovernancePage JSX. **PASS.** *(F4 Frontend React parity 2026-06-28: 5 trang React + AssistantPanel + vá XSS. Platform Alignment 2026-06-27: Migration 015 + 9 WF + CI guard. Chat 11: WF-12 agentic, Migration 014. Chat 10: Citation Grounding PASS, Migration 013.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -42,7 +42,7 @@
 | **F4 — Frontend React parity + AssistantPanel + vá XSS** | ✅ **PASS** (2026-06-28) | 5 trang React/TSX; `features/assistant/AssistantPanel.tsx` nối WF-12; badge grounded/ungrounded; XSS F4 vá (JSX escape mặc định, 0 `dangerouslySetInnerHTML`); build xanh 677ms; commit `5fc3a7b` lên `main`. |
 | n8n WF-10 | 🔲 Kế hoạch (Chat 15) | Google Drive sync — kẹt ràng buộc 3-credential, xử lý lối vòng |
 | Equipment-Aware + Glossary | 🔲 Kế hoạch (Chat 14) | Migration **017** (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`) |
-| Golden Dataset + eval | 🔲 Kế hoạch (Chat 13) | `golden_questions` = **7 câu** (thực tế); bảng `eval_runs`/`eval_results` chưa tạo |
+| **Chat 13 — Governance + Golden Dataset eval** | ✅ **PASS** (2026-06-28) | Migration 016 applied; `eval_runs`/`eval_results` (RLS); seed **50 câu** GMP (41 category); `governance-contract.md` 4 tầng; GovernancePage JSX; `requirements_eval.txt` pin ragas/supabase/openai; git `703d889`. |
 
 ---
 
@@ -130,6 +130,20 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 **Sản phẩm Chat 11:** `TKTL WF-12` (n8n, published) · `supabase/migrations/014_chat_memory.sql` · `014_down.sql`.
 
+### ✅ Chat 13 — Governance tường minh + Golden Dataset eval — 2026-06-28 — PASS
+
+**Migration 016** (`supabase/migrations/016_eval_harness.sql`): bảng `eval_runs` (id, run_at, model_tag, n_questions, score_mean, score_min, passed, notes) + `eval_results` (id, run_id→eval_runs, question_id→golden_questions, answer, score_faithfulness, score_relevancy, score_context_recall, grounded_pct, passed, raw_json); RLS `authenticated` SELECT+INSERT; index `idx_eval_results_run_id` + `idx_eval_runs_run_at`. Rollback `016_down.sql`. Idempotent (DO block + IF NOT EXISTS + policy guard).
+
+**Seed golden_questions:** `scripts/seed_golden_questions.sql` bổ sung 43 câu → tổng **50 câu GMP** (41 category: sop_control, batch_records, deviations, CAPA, OOS, stability, v.v.). Idempotency: advisory lock + NOT EXISTS theo nội dung câu hỏi.
+
+**Eval harness:** `scripts/run_eval.py` — Ragas 3 metric (faithfulness, answer_relevancy, context_recall) + grounded_pct; đọc keys từ env (SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY, WEBHOOK_BASE); ghi kết quả vào `eval_runs`/`eval_results`. `requirements_eval.txt` pin `ragas>=0.1,<0.2`, `supabase>=2.0,<3.0`, `openai>=1.0,<2.0`.
+
+**Governance-contract.md:** 4 tầng (Input 500 ký tự + SQL injection guard → Retrieval hybrid_search_v3 → Generation constraint + disclaimer → Output grounded_pct≥0.60 + confidence≥MEDIUM). Ngưỡng eval 0.90 ≠ ngưỡng grounding 0.60.
+
+**GovernancePage:** tích hợp vào Security panel (`App.tsx` dòng 1476–1507); JSX thuần, 0 `dangerouslySetInnerHTML`. `GOVERNANCE_LAYERS` const array 4 tầng.
+
+**Sản phẩm Chat 13:** `supabase/migrations/016_eval_harness.sql` + `016_down.sql` · `scripts/seed_golden_questions.sql` · `scripts/run_eval.py` · `scripts/requirements_eval.txt` · `docs/governance-contract.md` · `app/src/App.tsx` (GovernancePage). Git `703d889` → `main`.
+
 ### ✅ Platform Alignment — security hardening — 2026-06-27 — PASS
 
 **PHA 1A — Migration 015** (`supabase/migrations/015_platform_security_hardening.sql`): (1) `security_invoker=true` cho 3 view tài liệu; (2) revoke EXECUTE 11 RPC từ `public`/`anon`/`authenticated`, chỉ `service_role`; (3) khóa `search_path` 17 hàm; (4) trigger append-only `crave_block_append_only_mutation` cho `audit_log` + `chat_memory`; (5) RLS tường minh cả hai bảng. Rollback `015_down.sql`.
@@ -198,7 +212,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 - **✅ Chat 11 — WF-12 lõi trợ lý agentic.** AI Agent native + Memory Postgres (Migration 014 `chat_memory`) + 3 tools governed qua `hybrid_search_v3` + verify Cách B + audit. Webhook `/assistant-query`. *(ĐÃ XÂY.)*
 - **✅ Platform Alignment — security hardening (2026-06-27).** Migration 015 (security_invoker + revoke RPC + search_path + append-only); 9 WF TKTL re-point project mới; CI guard semantic + release manifest (git_sha `98ee969c`). *(PASS.)*
 - **✅ F4 — Frontend React parity + AssistantPanel + vá XSS (2026-06-28).** Port 5 trang sang React; `features/assistant/AssistantPanel.tsx` nối WF-12; badge grounded/ungrounded; XSS F4 vá; build xanh; commit `5fc3a7b`. *(PASS.)*
-- **🔲 Chat 13 — Governance tường minh + Golden Dataset eval.** Hợp đồng 4 tầng; bộ câu hỏi vàng (`golden_questions` 7→50-100 câu); harness eval (Migration **016** bảng `eval_runs`/`eval_results`); script Python Ragas/DeepEval đọc key từ env; ngưỡng ≥0.90.
+- **✅ Chat 13 — Governance tường minh + Golden Dataset eval (2026-06-28).** Migration 016 (`eval_runs`/`eval_results`, RLS, index); seed 50 câu GMP (41 category); `governance-contract.md` 4 tầng + disclaimer; GovernancePage JSX thuần; `run_eval.py` Ragas đọc key từ env; `requirements_eval.txt` pin version; git `703d889`. *(PASS.)*
 - **🔲 Chat 14 — Equipment-Aware + Glossary + công cụ thẩm định.** Migration **017** (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`); WF-03/04/05 lên `features/validation/`.
 - **🔲 Chat 15 — Nguồn dữ liệu + skills-as-code + đóng gói.** WF-10 Drive (lối vòng / hoãn có ghi nhận); prompt versioned ở Postgres; runbook + hồi quy cuối.
 
