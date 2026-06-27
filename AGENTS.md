@@ -1,41 +1,39 @@
-# Quy tắc Codex cho CRAVE / Du_bao_thoi_tiet
+# Codex instructions for CRAVE / Du_bao_thoi_tiet
 
-Luôn làm việc bằng tiếng Việt.
+Luôn trả lời bằng tiếng Việt.
 
-## Khi bắt đầu task code
-- Ưu tiên dùng skill `$crave-codex-builder` nếu task liên quan CRAVE, Supabase, n8n, workflow, migration hoặc frontend.
-- Đọc cấu trúc repo trước khi sửa.
-- Kiểm tra `git status` trước khi sửa.
-- Không làm trực tiếp trên main/master nếu task có thay đổi lớn; tạo branch riêng.
+Đây là repo CRAVE chính:
+- Repo: tienhoandhd-droid/Du_bao_thoi_tiet
+- Local path: ~/Desktop/Du_bao_thoi_tiet
+- Frontend nằm trong app/
+- Supabase project: bdttccztjtrcaztjgkot
+- n8n: n8n.cpc1hn.com
 
-## GitHub
-- Được phép sửa file local trong repo này.
-- Trước khi commit phải hiển thị diff summary.
-- Không merge PR nếu chưa được yêu cầu.
+## Skill mặc định
 
-## Supabase
-- Project đúng: `bdttccztjtrcaztjgkot`.
-- Được phép đọc schema, list tables, xem migration.
-- Trước khi chạy `apply_migration` hoặc `execute_sql` có ghi dữ liệu/schema, phải hiển thị SQL và hỏi xác nhận.
-- Không dùng project cũ `xrpnlpfcoarouoqkhgfp`.
+Với mọi task liên quan CRAVE, Supabase, n8n, migration SQL, workflow, frontend TypeScript, GMP, SOP, RAG hoặc audit trail, hãy tự áp dụng skill:
 
-## n8n
-- Server đúng: `n8n.cpc1hn.com`.
-- Chỉ sửa workflow prefix `TKTL`.
+$crave-codex-builder
+
+Không cần người dùng phải nhắc lại tên skill.
+
+## Quy tắc an toàn
+
+- Không apply_migration nếu chưa cho người dùng xem SQL và hỏi xác nhận.
+- Không execute_sql ghi/sửa/xóa nếu chưa hỏi xác nhận.
+- Không update/execute/publish/unpublish/archive workflow n8n nếu chưa hỏi xác nhận.
+- Không push GitHub nếu chưa báo cáo diff và được xác nhận.
+- Chỉ sửa workflow prefix TKTL.
 - Không đụng workflow BMS-GMP, VMP, QMSTeam, GMP Kiểm Tạp.
-- Trước khi `update_workflow`, `execute_workflow`, `publish_workflow`, `unpublish_workflow`, `archive_workflow`, phải mô tả thay đổi và hỏi xác nhận.
+- Không dùng project Supabase cũ xrpnlpfcoarouoqkhgfp.
+- Không hard-code secret vào frontend/source code.
 
-## Frontend
-- Code nằm trong `app/`.
-- Không hard-code secret.
-- Chỉ dùng Supabase anon key nếu cần public config.
-- Không dùng `innerHTML` cho dữ liệu từ DB nếu chưa escape.
+## Quy trình mặc định
 
-## Kết thúc task
-Luôn báo cáo:
-- File đã sửa
-- Supabase thay đổi gì
-- n8n thay đổi gì
-- Lệnh test/lint/build đã chạy
-- Git status
-- Commit message đề xuất
+1. Đọc cấu trúc repo.
+2. Đọc file liên quan.
+3. Kiểm tra git status.
+4. Lập plan ngắn.
+5. Sửa code.
+6. Chạy test/lint/build nếu phù hợp.
+7. Báo cáo kết quả và rủi ro.
