@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-26 — sau **Chat 09**: **dọn nợ credential** (`OpenAL`→`OpenAl` ở WF-03/04/05/09) + dựng **đường ống build TypeScript (Vite)** trong thư mục con `app/`; "hello dashboard" **deploy XANH trên Pages** (Action #18 Success 23s, inject `VITE_*` OK, 3 biến hiển thị OK). *(Chat 08: tái định phạm vi + spike GĐ0 ĐẠT, kế hoạch 09→15.)*
+**Cập nhật gần nhất:** 2026-06-27 — sau **Chat 10**: **Citation Grounding** — Migration 013 (`claim_text`/`grounded`/`citation_rank` vào `ai_query_sources`) + fix JWT Verify URL WF-02 + WF-02 Format Response lưu `INSERT INTO ai_query_sources` (CTE đơn) + Frontend badge ✓ Xác minh / ⚠ Chưa xác minh theo `grounded`. **PASS trên trình duyệt.** *(Chat 09: nền móng Vite deploy XANH; Chat 08: tái định phạm vi + spike GĐ0 ĐẠT.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -35,8 +35,9 @@
 | CRAVE: Reranker + Query Expansion | ✅ Trong WF-02(__2_) | pool 24 → top 8, expansion VI+EN |
 | **WF-11 Literature Search** | 🟡 File sẵn sàng (23/23), credential **ID thật** | webhook `literature-search`, 2 chế độ search/ingest, verify Cách B byte-identical. **WF-11 ĐÃ SẠCH** (OpenAl + ID thật). Chưa import. |
 | **Spike GĐ0 — AI Agent native** | ✅ **ĐẠT** (Chat 08) | Agent + tool-calling chạy trong sandbox; trả `SPIKE OK - ket qua = 391` qua Calculator (Chat Model chạy 2×). **Crypto-block KHÔNG đụng đường agent.** |
-| **Frontend TypeScript — nền móng** | ✅ **Deploy XANH trên Pages** (Chat 09) | Vite 5 + React 18 + TS + Tailwind 3 + shadcn foundation, đặt trong `app/`; build trong Actions; inject `VITE_*` OK (3 biến). Port 5 trang → Chat 10 |
-| **WF-12 — lõi trợ lý agentic** | 🔲 Kế hoạch (Chat 11) | AI Agent + tools governed + memory Postgres; đường chính (spike đã xác nhận) |
+| **Frontend TypeScript — nền móng** | ✅ **Deploy XANH trên Pages** (Chat 09) | Vite 5 + React 18 + TS + Tailwind 3 + shadcn foundation, đặt trong `app/`; build trong Actions; inject `VITE_*` OK (3 biến). |
+| **Citation Grounding — Migration 013** | ✅ **PASS** (Chat 10, 2026-06-27) | `ai_query_sources` + `claim_text`/`grounded`/`citation_rank`; WF-02 lưu CTE; badge ✓/⚠ trên frontend vanilla. |
+| **WF-12 — lõi trợ lý agentic** | 🔲 Kế hoạch (Chat 11) | AI Agent + tools governed + memory Postgres (migration 014); đường chính (spike đã xác nhận) |
 | n8n WF-10 | 🔲 Kế hoạch (Chat 15) | Google Drive sync — kẹt ràng buộc 3-credential, xử lý lối vòng |
 | Equipment-Aware + Glossary | 🔲 Kế hoạch (Chat 14) | Migration 013 (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`) |
 | Golden Dataset + eval | 🔲 Kế hoạch (Chat 13) | bảng `golden_questions` đã có |
@@ -95,7 +96,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 **Sản phẩm Chat 08:** `SPIKE-AI-Agent.json` · `00-HANDOFF-CRAVE.md` · `KICKOFF-CHAT09.md`.
 
-### ✅ Chat 09 — Dọn nợ credential + đường ống build TypeScript (nền móng) *(chat này)*
+### ✅ Chat 09 — Dọn nợ credential + đường ống build TypeScript (nền móng)
 **1. Dọn nợ credential (soi file thật):** WF-03/04/05/09 mỗi file đúng **1 nhãn `OpenAL`** trên node `REPLACE` → đổi `OpenAL`→`OpenAl` (giữ `id:"REPLACE"`), diff đúng 1 dòng/ file, JSON hợp lệ. **`OpenAL` = 0** ở cả 4. `WF-02 __1_` xác nhận **đã không còn** trong repo (chỉ còn `__2_`, sạch) → DoD "loại `__1_`" đạt ở cấp kho.
 
 **2. Đường ống build TS — đặt trong THƯ MỤC CON `app/`:** để **giữ vanilla nguyên vẹn** ở gốc (vanilla chiếm `index.html` gốc), dự án Vite nằm trong `app/`; chỉ thay `deploy.yml`. Cây: `package.json` + `package-lock.json` (lockfileVersion 3, 187 gói) + `vite.config.ts` (`base:'/Du_bao_thoi_tiet/'`, alias `@`→`src`) + `tsconfig.json` + `tailwind.config.ts` (token **Ice Crystal** qua biến CSS dạng channel `H S% L%` + `/<alpha-value>`) + `postcss.config.js` + `components.json` + `.gitignore` + `src/{main.tsx, App.tsx, index.css, vite-env.d.ts, lib/utils.ts}`. App "hello dashboard" đọc/validate `import.meta.env.VITE_*` (OK / RỖNG / PLACEHOLDER, che anon key).
@@ -105,7 +106,19 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 **4. Nghiệm thu ĐẠT:** build-thử sandbox xanh (34 modules, CSS 9.76kB, JS ~166kB); base/asset = `/Du_bao_thoi_tiet/…`; inject xác nhận (3 giá trị bake vào `dist`, 0 placeholder). **Action #18 Success (23s)**; trang Pages hiển thị hello dashboard với **3 biến OK** (Supabase URL + anon key 208 ký tự + webhook `n8n.cpc1hn.com/webhook`).
 > *Quyết định:* URL live tạm hiển thị hello dashboard; vanilla source ở gốc **nguyên vẹn**, quay lui = revert 1 file `deploy.yml`. Cảnh báo "Node.js 20 deprecated → 24" là runtime của *bản action* (checkout@v4…), KHÔNG đụng build.
 
-**Sản phẩm Chat 09:** `app/` (cây Vite, đã build-thử xanh) · `deploy.yml` (Vite, subfolder) · WF-03/04/05/09 (sạch `OpenAl`) · `00-HANDOFF-CRAVE.md` (bản này) · `KICKOFF-CHAT10.md`.
+**Sản phẩm Chat 09:** `app/` (cây Vite, đã build-thử xanh) · `deploy.yml` (Vite, subfolder) · WF-03/04/05/09 (sạch `OpenAl`) · `00-HANDOFF-CRAVE.md` · `KICKOFF-CHAT10.md`.
+
+### ✅ Chat 10 — Citation Grounding (Migration 013) — 2026-06-27 — **PASS**
+
+**1. Migration 013** (`supabase/migrations/013_citation_grounding.sql`): thêm 3 cột vào `ai_query_sources` (`claim_text TEXT`, `grounded BOOLEAN NOT NULL DEFAULT false`, `citation_rank INT`); thêm 3 constraint + 3 index + INSERT policy RLS; rollback `013_down.sql` dùng comment `CRAVE-013` để tránh drop cột tiền-migration (idempotent).
+
+**2. Fix JWT Verify URL WF-02:** URL cũ trỏ project `xrpnlpfcoarouoqkhgfp` (sai) → sửa thành project hiện tại `bdttccztjtrcaztjgkot`. Params vẫn byte-identical Cách B.
+
+**3. WF-02 Format Response — lưu citation grounding:** viết lại `save_sql` thành CTE đơn; bổ sung `INSERT INTO ai_query_sources` với `chunk_id`, `grounded`, `citation_rank` cho mỗi chunk trả về từ `hybrid_search_v3`.
+
+**4. Frontend vanilla (js/app.js + styles.css):** bảng nguồn thêm cột "Trạng thái"; badge **✓ Xác minh** (xanh) / **⚠ Chưa xác minh** (vàng) theo trường `grounded` từ API. F4 (XSS) chưa vá — hoãn sang Chat 12 (khi port React).
+
+**Sản phẩm Chat 10:** `supabase/migrations/013_citation_grounding.sql` · `013_down.sql` · `js/app.js` (badge) · `styles.css` · `00-HANDOFF-CRAVE.md` (bản này).
 
 ---
 
@@ -120,19 +133,20 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 | F1 | Frontend nút "chết im" (trùng tên `supabase`) | 🔴 | ✅ ĐÃ SỬA (client → `sb`) |
 | F2 | Cấu hình rỗng (Variables vs Secrets) | 🔴 | ✅ ĐÃ SỬA (deploy.yml dùng `vars.*`) |
 | F3 | SUPABASE_URL thừa `/rest/v1/` | 🟠 | ✅ ĐÃ SỬA (URL gốc) |
-| **F4** | **`app.js` render `innerHTML` không escape (trừ `r.answer`) → stored-XSS** | 🟠 | 🔲 **Vá ở Chat 10** (React escape mặc định) |
+| **F4** | **`app.js` render `innerHTML` không escape (trừ `r.answer`) → stored-XSS** | 🟠 | 🔲 **Hoãn → Chat 12** (port React; escape mặc định) |
 
-**HOÃN:** `hybrid_search_v3` lọc `'vi'` loại `'vi-en'` — sửa ở **migration 013 (Chat 14)**; không cắn ở chế độ `'any'` mặc định.
+**HOÃN:** `hybrid_search_v3` lọc `'vi'` loại `'vi-en'` — sửa ở **migration 015 (Chat 14, đã dời số vì 013 dùng cho citation grounding)**; không cắn ở chế độ `'any'` mặc định.
 **HOÃN (Chat 07):** WF-11 nạp lại cùng `pmid`/`doi` đụng `UNIQUE(...)` → xử lý `ON CONFLICT`/versioning sau.
 **Credential (ĐÃ DỌN ở Chat 09):** OpenAI = **`OpenAl`** (l thường, ID `r5CCCyYKeJDjnJ0A`). Nợ `OpenAL` đã **hết** — WF-03/04/05/09 đổi `OpenAL`→`OpenAl` (giữ `id:"REPLACE"`, relink khi import); `WF-02 __1_` đã loại khỏi repo.
 **Cảnh báo lành tính (Chat 09):** Action #18 báo "Node.js 20 deprecated … forced to run on Node.js 24" — là deprecation runtime của *bản action* (`checkout@v4`/`setup-node@v4`…), KHÔNG đụng build (app dùng Node 22). Tùy chọn nâng major action (`checkout@v5`…) để hết cảnh báo.
+**Migration (Chat 10):** 013 đã dùng cho citation grounding → số migration tiếp theo = **014** (chat_memory ở Chat 11), **015** (equipment+glossary ở Chat 14).
 
 ---
 
 ## 4. QUYẾT ĐỊNH KỸ THUẬT
 1. **Verify JWT (RUNTIME) = Cách B remote.** HTTP `/auth/v1/user` + `apikey` anon; `onError=continueErrorOutput` → `Auth 401`. Baseline `d22a5154…`.
 2. **Plan A (JWKS offline):** xếp lại. **Plan B (HS256):** không dùng; số 012 để dành.
-3. **WF-02 v1→v3.** Migration mới = **013** nếu cần schema mới.
+3. **WF-02 v1→v3.** Migration mới = **014** kế tiếp (013 đã dùng chat_memory → citation grounding).
 4. **Credential:** OpenAI = **`OpenAl`** (ID `r5CCCyYKeJDjnJ0A`); Postgres `GMP-check` (ID `0WcJFXEhwLXQhJmn`). WF-01,08,11 mang ID thật; WF-02(__2_),06,07 + WF-03/04/05/09 dùng `REPLACE` → relink khi import.
 5. **CORS:** `allowedOrigins='*'` ở node Webhook cho WF frontend gọi.
 6. **Frontend (vanilla cũ):** client tên **`sb`** (tránh trùng `window.supabase`).
@@ -146,21 +160,23 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 14. **(Chat 08) Repo:** áp dụng `medical-guideline-rag` (stack TS) + AI Agent n8n; nguyên-lý-only `enterprise-rag-patterns` (4 tầng defense-in-depth); **tránh cài** `n8n-nodes-agent-kit` (OpenRouter=cred thứ 3); `BioDockify` ngoài phạm vi.
 15. **(Chat 09) Dự án Vite đặt trong `app/`** (KHÔNG ghi đè gốc) để giữ app vanilla nguyên vẹn; `deploy.yml` dùng `working-directory: app`, build `app/` và deploy `app/dist`. URL live tạm hiển thị hello dashboard tới khi Chat 10 parity; quay lui = revert 1 file `deploy.yml`.
 16. **(Chat 09) Bộ phiên bản TS chốt:** Vite **5** + React **18** + TypeScript **5** + Tailwind **3** (config `.ts`; token qua biến CSS dạng channel `H S% L%` + `/<alpha-value>` để opacity chạy + tương thích shadcn) + shadcn foundation (`components.json`, `lib/utils.ts` `cn()`). CI **Node 22** (khớp bản build-thử của Claude). `package.json`/`lock` **phát theo cặp**, không sửa tay.
+17. **(Chat 10) Citation Grounding:** Migration 013 thêm `claim_text`/`grounded`/`citation_rank` vào `ai_query_sources`; WF-02 lưu citation qua CTE đơn; badge ✓/⚠ frontend vanilla. JWT Verify URL WF-02 fix sang project `bdttccztjtrcaztjgkot`. F4 (XSS) hoãn → Chat 12 (port React).
+18. **(Chat 10) Số migration chốt:** 013 = citation grounding ✅; **014 = chat_memory (Chat 11)**; 015 = equipment+glossary (Chat 14, dời từ số 013 cũ).
 
 ---
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT + kế hoạch 09–15 · ✅ **09 Dọn nợ credential + đường ống build TS (hello dashboard deploy XANH trên Pages)**
+**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT · ✅ 09 Dọn nợ credential + đường ống build TS (hello dashboard XANH) · ✅ **10 Citation Grounding — Migration 013 + WF-02 fix + badge frontend (PASS 2026-06-27)**
 
 **Kế hoạch chat hệ mới (mỗi chat = 1 mục, validate được, không phá MVP):**
-- **✅ Chat 09 — Dọn nợ + đường ống build TS.** `OpenAL`→`OpenAl` (WF-03/04/05/09); `WF-02 __1_` đã loại; dự án Vite trong `app/` + `deploy.yml` Vite; "hello dashboard" **deploy XANH** trên Pages, inject `VITE_*` OK (3 biến). *(Nền móng, không feature — ĐẠT.)*
-- **🔲 Chat 10 — Khung dashboard TS + parity** *(scaffold đã có ở Chat 09 trong `app/`)*. Thêm shadcn component cần dùng; port `lib/`+`types/` từ `app.js`; port 5 trang (dashboard/ai-search/documents/audit/security) đạt **parity**; **vá XSS (F4)** (React escape mặc định). App vanilla giữ sống tới khi parity.
-- **🔲 Chat 11 — WF-12 lõi trợ lý agentic.** AI Agent + Chat Model `OpenAl` + memory Postgres + tools governed (`rag_search`/`literature`/`calc`, đều qua `hybrid_search_v3`) + verify Cách B + audit. Migration bảng `chat_memory`.
-- **🔲 Chat 12 — UI trợ lý + nối WF-12.** `features/assistant/` (chat, hiển thị tool-call + bảng trích dẫn); endpoint+CORS; chạy đầu-cuối.
+- **✅ Chat 09 — Dọn nợ + đường ống build TS.** `OpenAL`→`OpenAl` (WF-03/04/05/09); dự án Vite trong `app/`; "hello dashboard" **deploy XANH**. *(ĐẠT.)*
+- **✅ Chat 10 — Citation Grounding (2026-06-27).** Migration 013 (`ai_query_sources` + `claim_text`/`grounded`/`citation_rank`); WF-02 CTE save + fix JWT Verify URL; badge ✓/⚠ frontend. *(PASS.)*
+- **🔲 Chat 11 — WF-12 lõi trợ lý agentic.** AI Agent native + Chat Model `OpenAl` + memory Postgres (**Migration 014** bảng `chat_memory`) + 3 tools governed (`rag_search`/`literature_lookup`/`calc`, đều qua `hybrid_search_v3`) + verify Cách B byte-identical + audit append-only. Webhook POST `/assistant-query`.
+- **🔲 Chat 12 — Khung dashboard TS (parity) + UI trợ lý + vá F4.** Port 5 trang (dashboard/ai-search/documents/audit/security) sang React; `features/assistant/` (chat + tool-call + bảng trích dẫn + badge grounded); nối WF-12; **vá XSS F4** (React escape mặc định); chạy đầu-cuối.
 - **🔲 Chat 13 — Governance tường minh + Golden Dataset eval.** Hợp đồng 4 tầng; bộ câu hỏi vàng (`golden_questions`); harness đo retrieval/answer trước–sau.
-- **🔲 Chat 14 — Equipment-Aware + Glossary + công cụ thẩm định.** Migration 013 (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`); WF-03/04/05 lên `features/validation/`.
-- **🔲 Chat 15 — Nguồn dữ liệu + skills-as-code + đóng gói.** WF-10 Drive (lối vòng giữ cred Google ngoài n8n / hoặc hoãn có ghi nhận); prompt versioned ở Postgres; runbook + hồi quy cuối.
+- **🔲 Chat 14 — Equipment-Aware + Glossary + công cụ thẩm định.** **Migration 015** (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`); WF-03/04/05 lên `features/validation/`.
+- **🔲 Chat 15 — Nguồn dữ liệu + skills-as-code + đóng gói.** WF-10 Drive (lối vòng / hoãn có ghi nhận); prompt versioned ở Postgres; runbook + hồi quy cuối.
 
 *Linh hoạt:* 09–10 là track frontend, 11–15 nghiêng backend/nghiệp vụ (gần độc lập). Chat ngắn có thể gộp (11+12, hoặc gập 13 vào 14).
 **HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow.
@@ -197,7 +213,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 | OpenAI runtime | Chỉ từ n8n backend |
 | AI sources | Chỉ `approved_for_ai_use`; **mọi tool agent qua `hybrid_search_v3`** (không SELECT thô) |
 | Audit log | Append-only (INSERT); mỗi lượt trợ lý đều ghi |
-| Migration | 001→010→011 (đã cài) → 012 chỉ khi Plan B → mới = 013 (Chat 14). Cách B/module hoá/TS/agentic không cần migration (trừ bảng `chat_memory` ở Chat 11) |
+| Migration | 001→010→011 (đã cài) → 012 chỉ khi Plan B → **013 citation grounding ✅** → **014 chat_memory (Chat 11)** → **015 equipment+glossary (Chat 14)** |
 | Ngôn ngữ | Tiếng Việt |
 
 ---
@@ -207,7 +223,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 - **Frontend vanilla cũ:** `index.html` + `styles.css` + `js/config.js` + `js/app.js` + `deploy.yml` (sed inject `vars.*`). *(Giữ sống tới khi TS đạt parity ở Chat 10.)*
 - **Frontend hệ mới (TS) — trong THƯ MỤC CON `app/`:** `app/{package.json, package-lock.json (lockfileVersion 3, 187 gói), vite.config.ts (base '/Du_bao_thoi_tiet/', alias @→src), tsconfig.json, tailwind.config.ts, postcss.config.js, components.json, .gitignore, src/(main.tsx, App.tsx, index.css, vite-env.d.ts, lib/utils.ts; sẽ thêm types/, hooks/, components/, features/ ở Chat 10)}` + `.github/workflows/deploy.yml` (working-directory `app`; npm ci → vite build → deploy **`app/dist`**, inject `VITE_*`). **Không sửa package.json/lock bằng tay.** App vanilla ở GỐC giữ nguyên.
 - **Bộ workflow:** `WF-01,02(__2_),06,07,08` (Cách B + CORS) + `WF-03,04,05,09` (Cách B) + `WF-11` (ID thật). Bỏ WF-02(__1_).
-- **WF-12** (Chat 11): AI Agent + tools governed + memory Postgres + verify Cách B + audit.
+- **WF-12** (Chat 11): AI Agent + tools governed + memory Postgres (migration **014** bảng `chat_memory`) + verify Cách B + audit. Webhook `/assistant-query`.
 - **Params verify byte-identical; baseline `d22a5154…cb27759`.**
 - **Repo GitHub Pages chỉ chứa frontend.** Workflow ở n8n, SQL ở Supabase — không đẩy lên GitHub.
 
