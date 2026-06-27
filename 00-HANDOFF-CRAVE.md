@@ -204,7 +204,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT · ✅ 09 Dọn nợ credential + đường ống build TS (hello dashboard XANH) · ✅ **10 Citation Grounding — Migration 013 + WF-02 fix + badge frontend (PASS)** · ✅ **Chat 11 — WF-12 agentic + Migration 014** · ✅ **Platform Alignment — Migration 015 + 9 WF + CI guard/manifest (PASS 2026-06-27)** · ✅ **F4 — Frontend React parity + AssistantPanel + vá XSS (PASS 2026-06-28)**
+**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT · ✅ 09 Dọn nợ credential + đường ống build TS (hello dashboard XANH) · ✅ **10 Citation Grounding — Migration 013 + WF-02 fix + badge frontend (PASS)** · ✅ **Chat 11 — WF-12 agentic + Migration 014** · ✅ **Platform Alignment — Migration 015 + 9 WF + CI guard/manifest (PASS 2026-06-27)** · ✅ **F4 — Frontend React parity + AssistantPanel + vá XSS (PASS 2026-06-28)** · ✅ **Chat 13 — Governance 4 tầng + Golden Dataset eval — Migration 016 + seed 50 câu (PASS 2026-06-28)**
 
 **Kế hoạch chat hệ mới (mỗi chat = 1 mục, validate được, không phá MVP):**
 - **✅ Chat 09 — Dọn nợ + đường ống build TS.** *(ĐẠT.)*
