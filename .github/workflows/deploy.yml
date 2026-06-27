@@ -50,7 +50,7 @@ jobs:
           check_present() {
             name="$1"; val="$2"
             if [ -z "$val" ]; then
-              echo "FAIL $name RONG -- tao REPOSITORY VARIABLE (tab Variables, KHONG phai Secret)."
+              echo "FAIL $name RONG -- tao REPOSITORY VARIABLE (tab Variables, KHONG phai Secrets)."
               fail=1; return 1
             fi
             if printf '%s' "$val" | grep -qE '^__.*__$'; then
@@ -186,5 +186,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
----
