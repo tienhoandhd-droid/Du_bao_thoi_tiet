@@ -1,9 +1,10 @@
 # ============================================================
 # GitHub Actions: Build (Vite) + Deploy GMP Validation Dashboard (TS)
+# PHA 1C: semantic CI guard (exact URL, JWT ref, cấm ref cũ) + release manifest.
 # Dự án Vite nằm trong THƯ MỤC CON app/ → app vanilla ở gốc repo GIỮ NGUYÊN.
 # Đọc REPOSITORY VARIABLES (vars.*) → inject thành VITE_* lúc build → deploy app/dist.
 # 3 giá trị KHÔNG bí mật (anon key public-safe) → đặt ở tab "Variables".
-# Tên Variable GIỮ NGUYÊN như bản vanilla: SUPABASE_URL · SUPABASE_ANON_KEY · WEBHOOK_BASE
+# Tên Variable GIỮ NGUYÊN: SUPABASE_URL · SUPABASE_ANON_KEY · WEBHOOK_BASE
 # ============================================================
 name: Deploy to GitHub Pages
 
@@ -33,9 +34,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
-      # Guard 1: 3 Variables phải tồn tại, không rỗng, không còn placeholder.
-      # (rỗng thường do đặt nhầm ở tab Secrets thay vì Variables)
+      # Guard 1: 3 Variables phải có giá trị, không placeholder,
+      #           và PHẢI trỏ đúng project bdttccztjtrcaztjgkot (semantic check).
       - name: Kiểm tra Variables (trước build)
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
@@ -43,55 +45,138 @@ jobs:
           WEBHOOK_BASE: ${{ vars.WEBHOOK_BASE }}
         run: |
           fail=0
-          check() {
+          NEW_REF="bdttccztjtrcaztjgkot"
+          OLD_REF="xrpnlpfcoarouoqkhgfp"
+
+          check_present() {
             name="$1"; val="$2"
             if [ -z "$val" ]; then
-              echo "❌ $name RỖNG — tạo REPOSITORY VARIABLE (tab Variables, KHÔNG phải Secret) tên $name."
-              fail=1
-            elif printf '%s' "$val" | grep -qE '^__.*__$'; then
-              echo "❌ $name còn placeholder ('$val')."
-              fail=1
-            else
-              echo "✅ $name có giá trị."
+              echo "FAIL $name RONG -- tao REPOSITORY VARIABLE (tab Variables, KHONG pha
+              fail=1; return 1
             fi
+            if printf '%s' "$val" | grep -qE '^__.*__$'; then
+              echo "FAIL $name con placeholder ('$val')."
+              fail=1; return 1
+            fi
+            echo "OK   $name co gia tri."
           }
-          check SUPABASE_URL "$SUPABASE_URL"
-          check SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
-          check WEBHOOK_BASE "$WEBHOOK_BASE"
-          [ "$fail" = "0" ] || { echo "Dừng vì thiếu cấu hình."; exit 1; }
+
+          check_present SUPABASE_URL      "$SUPABASE_URL"
+          check_present SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          check_present WEBHOOK_BASE      "$WEBHOOK_BASE"
+
+          # Semantic: SUPABASE_URL phải chứa đúng project ref mới.
+          if ! printf '%s' "$SUPABASE_URL" | grep -qF "$NEW_REF"; then
+            echo "FAIL SUPABASE_URL khong chua project ref '$NEW_REF' (hien tai: $SUPABA
+            fail=1
+          else
+            echo "OK   SUPABASE_URL tro dung project $NEW_REF."
+          fi
+
+          if printf '%s' "$SUPABASE_URL" | grep -qF "$OLD_REF"; then
+          fi
+
+          if printf '%s' "$SUPABASE_URL" | grep -qF "$OLD_REF"; then
+            echo "FAIL SUPABASE_URL van con project ref cu '$OLD_REF'."
+            fail=1
+          fi
+
+          # Semantic: decode JWT payload (base64url → standard base64) và kiểm 'ref'.
+          jwt_raw=$(printf '%s' "$SUPABASE_ANON_KEY" | cut -d. -f2)
+          # Chuyển base64url sang standard base64
+          jwt_std=$(printf '%s' "$jwt_raw" | tr -- '-_' '+/')
+          # Thêm padding
+          case $((${#jwt_std} % 4)) in
+            2) jwt_std="${jwt_std}==";;
+            3) jwt_std="${jwt_std}=";;
+          esac
+          decoded=$(printf '%s' "$jwt_std" | base64 -d 2>/dev/null || echo "")
+
+          if printf '%s' "$decoded" | grep -qF "$NEW_REF"; then
+            echo "OK   SUPABASE_ANON_KEY JWT ref = $NEW_REF."
+          else
+            echo "FAIL SUPABASE_ANON_KEY JWT ref khong phai $NEW_REF -- sai project anon
+            fail=1
+          fi
+
+          if printf '%s' "$decoded" | grep -qF "$OLD_REF"; then
+            echo "FAIL SUPABASE_ANON_KEY JWT van chua ref cu '$OLD_REF'."
+            fail=1
+          fi
+
+          [ "$fail" = "0" ] || { echo "DUNG: cau hinh sai project. Kiem tra tab Variables."; exit 1; }
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: app/package-lock.json   # lock nằm trong app/
+          cache-dependency-path: app/package-lock.json
 
-      - name: Cài dependencies (npm ci)
+      - name: Cai dependencies (npm ci)
         run: npm ci
 
-      # Vite bake biến VITE_* vào bundle lúc build (anon-key-only).
-      - name: Build (inject VITE_* từ Variables)
+      # Vite bake VITE_* vào bundle lúc build (anon-key-only).
+      - name: Build (inject VITE_* tu Variables)
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           VITE_WEBHOOK_BASE: ${{ vars.WEBHOOK_BASE }}
         run: npm run build
 
-      # Guard 2: bản build không còn placeholder kiểu cũ VÀ đã chứa giá trị thật.
-      - name: Kiểm tra dist (sau build)
+      # Guard 2: dist không còn placeholder cũ, chứa URL thật,
+      #          KHÔNG chứa project ref cũ (xrpnlpfcoarouoqkhgfp).
+      - name: Kiem tra dist (sau build)
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
         run: |
-          if grep -rqE '__SUPABASE_URL__|__SUPABASE_ANON_KEY__|__WEBHOOK_BASE__' dist; then
-            echo "❌ Còn placeholder kiểu cũ trong dist."
+          NEW_REF="bdttccztjtrcaztjgkot"
+          OLD_REF="xrpnlpfcoarouoqkhgfp"
+
+          if grep -rqE '__SUPABASE_URL__|__SUPABASE_ANON_KEY__|__WEBHOOK_BASE__' dist; t
+            echo "FAIL Con placeholder kieu cu trong dist."
             exit 1
           fi
+
           if ! grep -rqF "$VITE_SUPABASE_URL" dist; then
-            echo "❌ Không thấy giá trị SUPABASE_URL trong dist — inject thất bại."
+            echo "FAIL Khong thay SUPABASE_URL trong dist -- inject that bai."
             exit 1
           fi
-          echo "✅ dist đã chứa cấu hình inject, không còn placeholder."
+
+          if grep -rqF "$OLD_REF" dist; then
+            echo "FAIL dist chua project ref cu '$OLD_REF' -- xoa hardcode hoac doi Variable."
+            exit 1
+          fi
+
+          echo "OK   dist sach: inject dung project $NEW_REF, khong con ref cu."
+
+      # Release manifest: ghi Git SHA + migration version + n8n activeVersionIds.
+      # Chạy TRƯỚC upload để manifest nằm trong artifact.
+      - name: Tao release manifest
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > dist/release-manifest.json << EOF
+          {
+            "built_at": "$TIMESTAMP",
+            "git_sha": "$GITHUB_SHA",
+            "migration_version": "015",
+            "n8n_active_version_ids": {
+              "WF-01": "2c707741",
+              "WF-02": "767e4afb",
+              "WF-03": "66c5e44a",
+              "WF-04": "fb751091",
+              "WF-05": "1a3919c5",
+              "WF-06": "f7b7ee5a",
+              "WF-07": "8f2d714c",
+              "WF-09": "c03ee46b",
+              "WF-11": "bad508fe",
+              "WF-12": "8d6c7110"
+            },
+            "supabase_project": "bdttccztjtrcaztjgkot"
+          }
+          EOF
+          echo "OK   release-manifest.json:"
+          cat dist/release-manifest.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
