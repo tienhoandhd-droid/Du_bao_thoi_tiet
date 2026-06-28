@@ -213,3 +213,24 @@ export interface CalculateReportResponse {
   interpretation?: string;
   disclaimer?: string;
 }
+
+export interface CopilotCitation {
+  chunk_id: string;
+  document_code: string;
+  text: string;
+}
+
+export interface CopilotQueryRequest {
+  query: string;
+  equipment_code: string;
+  validation_type: string;
+  session_id?: string;
+}
+
+export interface CopilotQueryResponse {
+  answer?: string;
+  citations?: CopilotCitation[];
+  session_id?: string;
+  grounded_pct?: number;
+  error?: string;
+}

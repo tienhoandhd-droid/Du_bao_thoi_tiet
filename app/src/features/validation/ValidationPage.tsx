@@ -8,8 +8,9 @@ import type {
   DraftProtocolResponse,
   ProtocolFinding,
 } from "@/types/api";
+import { CopilotPanel } from "./CopilotPanel";
 
-type Tab = "draft" | "check" | "calculate" | "glossary";
+type Tab = "draft" | "check" | "calculate" | "glossary" | "copilot";
 
 type GlossaryEntry = {
   id: string;
@@ -24,6 +25,7 @@ const TAB_LABELS: Record<Tab, string> = {
   check: "Kiểm tra đề cương",
   calculate: "Tính toán",
   glossary: "Tra cứu thuật ngữ",
+  copilot: "Validation Copilot",
 };
 
 const PROTOCOL_TYPES = [
@@ -91,6 +93,9 @@ export function ValidationPage({
         <CalculateTab token={token} onUnauthorized={onUnauthorized} />
       )}
       {tab === "glossary" && <GlossaryTab sb={sb} />}
+      {tab === "copilot" && (
+        <CopilotPanel token={token} onUnauthorized={onUnauthorized} />
+      )}
     </div>
   );
 }

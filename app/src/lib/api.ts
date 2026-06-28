@@ -7,6 +7,8 @@ import type {
   CalculateReportResponse,
   CheckProtocolRequest,
   CheckProtocolResponse,
+  CopilotQueryRequest,
+  CopilotQueryResponse,
   DashboardHealthResponse,
   DocumentSearchRequest,
   DocumentSearchResponse,
@@ -28,6 +30,7 @@ export const apiEndpoints = {
   draftProtocol: buildWebhookUrl("/draft-protocol"),
   checkProtocol: buildWebhookUrl("/check-protocol"),
   calculateReport: buildWebhookUrl("/calculate-report"),
+  copilotQuery: buildWebhookUrl("/copilot-query"),
 } as const;
 
 export type ApiEndpointKey = keyof typeof apiEndpoints;
@@ -171,6 +174,30 @@ export async function fetchCalculateReport(
   token: string,
 ): Promise<CalculateReportResponse> {
   return apiCall<CalculateReportResponse>("calculateReport", { method: "POST", body, token });
+}
+
+// WF-13 reads JWT from ?auth= query param, not Authorization header.
+export async function fetchCopilotQuery(
+  body: CopilotQueryRequest,
+  token: string,
+  signal?: AbortSignal,
+): Promise<CopilotQueryResponse> {
+  const url = `${apiEndpoints.copilotQuery}?auth=${encodeURIComponent(token)}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.ok) {
+    const payload = await parseJson<{ error?: string; message?: string }>(response);
+    throw new ApiError(
+      payload.error || payload.message || `HTTP ${response.status}`,
+      response.status,
+      payload,
+    );
+  }
+  return parseJson<CopilotQueryResponse>(response);
 }
 
 export type { AuditEntry };
