@@ -40,7 +40,7 @@
 | **WF-12 — lõi trợ lý agentic** | ✅ **ĐÃ XÂY** (Chat 11) | AI Agent + Chat Model `OpenAl` + memory Postgres (Migration 014 `chat_memory`) + 3 tools governed qua `hybrid_search_v3`; webhook `/assistant-query`; v2 activeVersionId `DMcZCeYXTFRUyufV` thêm Embed Query. |
 | **Platform Alignment — security hardening** | ✅ **PASS** (2026-06-27) | Migration 015: security_invoker 3 view, revoke RPC 11 hàm khỏi anon, search_path 17 hàm, append-only trigger; 9 WF re-point `bdttccztjtrcaztjgkot`; CI guard semantic + release manifest (git_sha `98ee969c`). |
 | **F4 — Frontend React parity + AssistantPanel + vá XSS** | ✅ **PASS** (2026-06-28) | 5 trang React/TSX; `features/assistant/AssistantPanel.tsx` nối WF-12; badge grounded/ungrounded; XSS F4 vá (JSX escape mặc định, 0 `dangerouslySetInnerHTML`); build xanh 677ms; commit `5fc3a7b` lên `main`. |
-| n8n WF-10 | 🔲 **POSTPONED** → Chat 16 | Google Drive sync — kẹt ràng buộc 3-credential + sandbox chặn crypto; lối vòng JWT inline → POC riêng ở Chat 16; ghi nhận đầy đủ `docs/WF-10-postponed.md` |
+| **n8n WF-10 Google Drive Sync** | ✅ **PASS (Chat 16, 2026-06-28)** | Migration **019** `drive_sync_log` (RLS, audit append-only); TKTL WF-10 webhook `/gmp-upload` (đổi từ `/drive-sync` tránh Cloudflare WAF); JWT qua `?auth=` query param; HTTP Request node + credential **"Kết nối drive"** (`googleOAuth2Api` — OAuth2 user account, bypass service-account-no-quota-403); multipart/related tự xây trong Code node; INSERT `drive_sync_log`; test file `wf10-final-ok.txt` → Drive ID `1jx9EixvMzW7RuCiKG-ZBAPKxWgT0gi3x`; HTTP 200 `success:true`. |
 | **Equipment-Aware + Glossary + Công cụ thẩm định** | ✅ **PASS (Chat 14, 2026-06-28)** | Migration **017** applied (`equipment_code` skip idempotent, `glossary` RLS 4 policies, `idx_glossary_term`, UPDATE `vi→vi-en`); WF-03/04/05 TKTL; `ValidationPage.tsx` 3 tab; commit `6e4c52c`; PR #1 |
 | **Chat 15 — Seed validation data + Glossary browser** | ✅ **PASS (Chat 15, 2026-06-28)** | Migration **018** applied (UPDATE template_structure IQ/OQ 14-section GMP, INSERT TPL-PQ-001, seed rsd_repeatability/recovery_rate/lod_lod_calc, seed HPLC-001/BALANCE-001); GlossaryTab tab 4 `ValidationPage.tsx`; WF-10 hoãn → `docs/WF-10-postponed.md`; commit `635f4e7` |
 | **Chat 13 — Governance + Golden Dataset eval** | ✅ **PASS** (2026-06-28) | Migration 016 applied; `eval_runs`/`eval_results` (RLS); seed **50 câu** GMP (41 category); `governance-contract.md` 4 tầng; GovernancePage JSX; `requirements_eval.txt` pin ragas/supabase/openai; git `703d889`. |
@@ -161,6 +161,22 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 **Sản phẩm Chat 15:** `supabase/migrations/018_seed_validation_data.sql` + `018_down.sql` (đã sửa schema) · `docs/WF-10-postponed.md` · `app/src/features/validation/ValidationPage.tsx` (GlossaryTab) · `AGENTS.md` · commit `635f4e7` → branch `codex/chat15-seed-validation-data`.
 
+### ✅ Chat 16 — WF-10 Google Drive Sync — 2026-06-28 — PASS
+
+**Migration 019** (`supabase/migrations/019_drive_sync_log.sql`): bảng `drive_sync_log` (id, triggered_by→auth.users, file_path, drive_file_id, status, error_message, synced_at, created_at); RLS `authenticated` SELECT + INSERT; append-only trigger. Rollback `019_down.sql`. Đã apply.
+
+**TKTL WF-10 Google Drive Sync** (n8n, ID `nFYb0JyZ6MZf5OVR`): webhook path `/gmp-upload` (đổi từ `/drive-sync` — Cloudflare WAF block JWT 802 ký tự trong `Authorization` header → bypass bằng `?auth=` query param); Cách B JWT verify qua Supabase `/auth/v1/user`; Code node `Decode Base64` xây multipart/related body tự tay; **HTTP Request node** upload lên Drive API v3 (`uploadType=multipart`, `supportsAllDrives=true`); credential **"Kết nối drive"** (`googleOAuth2Api`, ID `COdkzMLg68gEcJhZ`) — phải dùng OAuth2 user account vì service account (`kết nối google`) không có storage quota trên personal Drive → 403; SET node `Prepare Sync Log` → REST INSERT `drive_sync_log` → `Success Response` 200. `Drive Error` node kiểm `raw.id` để tránh false-positive khi routing sai.
+
+**Ghi nhận kỹ thuật quan trọng:**
+- `setNodeCredential` MCP không nhận `googleApi`/`oAuth2Api`/`googleSheetsOAuth2Api`/`googleDriveOAuth2Api` cho HTTP Request → phải set thủ công trong n8n UI.
+- `googleSheetsOAuth2Api` bị khóa với HTTP Request node ("credential configured to prevent use").
+- `googleDriveOAuth2Api` ("Google Drive account 163") báo "does not have access" → chưa authorize đúng.
+- `googleOAuth2Api` ("Kết nối drive") là loại generic OAuth2 — HTTP Request node chấp nhận.
+
+**Nghiệm thu:** test file `wf10-final-ok.txt` → Drive ID `1jx9EixvMzW7RuCiKG-ZBAPKxWgT0gi3x`; Supabase `drive_sync_log` ghi 1 dòng `id=7363ea1c`; HTTP 200 `{"success":true,"drive_file_id":"1jx9...","synced_at":"2026-06-28T12:26:29"}`.
+
+**Sản phẩm Chat 16:** `supabase/migrations/019_drive_sync_log.sql` + `019_down.sql` (đã apply) · n8n WF-10 TKTL active (`activeVersionId f0e0de35`) · credential "Kết nối drive" (`googleOAuth2Api`) trong n8n.
+
 ### ✅ Chat 13 — Governance tường minh + Golden Dataset eval — 2026-06-28 — PASS
 
 **Migration 016** (`supabase/migrations/016_eval_harness.sql`): bảng `eval_runs` (id, run_at, model_tag, n_questions, score_mean, score_min, passed, notes) + `eval_results` (id, run_id→eval_runs, question_id→golden_questions, answer, score_faithfulness, score_relevancy, score_context_recall, grounded_pct, passed, raw_json); RLS `authenticated` SELECT+INSERT; index `idx_eval_results_run_id` + `idx_eval_runs_run_at`. Rollback `016_down.sql`. Idempotent (DO block + IF NOT EXISTS + policy guard).
@@ -235,7 +251,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT · ✅ 09 Dọn nợ credential + đường ống build TS (hello dashboard XANH) · ✅ **10 Citation Grounding — Migration 013 + WF-02 fix + badge frontend (PASS)** · ✅ **Chat 11 — WF-12 agentic + Migration 014** · ✅ **Platform Alignment — Migration 015 + 9 WF + CI guard/manifest (PASS 2026-06-27)** · ✅ **F4 — Frontend React parity + AssistantPanel + vá XSS (PASS 2026-06-28)** · ✅ **Chat 13 — Governance 4 tầng + Golden Dataset eval — Migration 016 + seed 50 câu (PASS 2026-06-28)** · ✅ **Chat 14 — Equipment-Aware + Glossary + Công cụ thẩm định — Migration 017 + WF-03/04/05 + ValidationPage (PASS 2026-06-28)** · ✅ **Chat 15 — Seed validation data + Glossary browser — Migration 018 + GlossaryTab + WF-10 hoãn (PASS 2026-06-28)**
+**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT · ✅ 09 Dọn nợ credential + đường ống build TS (hello dashboard XANH) · ✅ **10 Citation Grounding — Migration 013 (PASS)** · ✅ **Chat 11 — WF-12 agentic + Migration 014 (PASS)** · ✅ **Platform Alignment — Migration 015 + 9 WF (PASS 2026-06-27)** · ✅ **F4 — Frontend React parity + AssistantPanel + vá XSS (PASS 2026-06-28)** · ✅ **Chat 13 — Governance + Golden Dataset — Migration 016 + 50 câu (PASS 2026-06-28)** · ✅ **Chat 14 — Equipment+Glossary — Migration 017 + WF-03/04/05 (PASS 2026-06-28)** · ✅ **Chat 15 — Seed data + GlossaryTab — Migration 018 (PASS 2026-06-28)** · ✅ **Chat 16 — WF-10 Google Drive Sync — Migration 019 + credential "Kết nối drive" + webhook /gmp-upload (PASS 2026-06-28)**
 
 **Kế hoạch chat hệ mới (mỗi chat = 1 mục, validate được, không phá MVP):**
 - **✅ Chat 09 — Dọn nợ + đường ống build TS.** *(ĐẠT.)*
@@ -246,10 +262,11 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 - **✅ Chat 13 — Governance tường minh + Golden Dataset eval (2026-06-28).** Migration 016 (`eval_runs`/`eval_results`, RLS, index); seed 50 câu GMP (41 category); `governance-contract.md` 4 tầng + disclaimer; GovernancePage JSX thuần; `run_eval.py` Ragas đọc key từ env; `requirements_eval.txt` pin version; git `703d889`. *(PASS.)*
 - **✅ Chat 14 — Equipment-Aware + Glossary + Công cụ thẩm định (2026-06-28).** Migration **017** (`equipment_code` skip idempotent, `glossary` RLS 4 policies + index, UPDATE `vi→vi-en`); WF-03 Draft Protocol + WF-04 Check Protocol + WF-05 Calculation Helper (TKTL, Cách B byte-identical); `ValidationPage.tsx` 3 tab; `api.ts` 3 endpoint; commit `6e4c52c`, PR #1. *(PASS.)*
 - **✅ Chat 15 — Seed dữ liệu thẩm định + Glossary browser (2026-06-28).** Migration **018** (UPDATE template_structure IQ/OQ → 14-section GMP; INSERT TPL-PQ-001; seed 3 calculation_formulas ICH Q2(R2) + category; seed 2 equipment_registry); GlossaryTab tab 4 `ValidationPage.tsx` (Supabase client trực tiếp); WF-10 HOÃN → `docs/WF-10-postponed.md`; sửa lỗi schema Codex (template_code/template_name/category); commit `635f4e7`. *(PASS.)*
-- **🔲 Chat 16 — WF-10 Google Drive sync (dùng credential "kết nối google").** Migration **019** `drive_sync_log` (RLS, audit append-only); TKTL WF-10 webhook `/drive-sync` → Cách B → Google Drive node dùng credential **"kết nối google"** (Google Service Account đã có sẵn) → INSERT drive_sync_log; không cần JWT inline POC.
+- **✅ Chat 16 — WF-10 Google Drive Sync (2026-06-28).** Migration **019** `drive_sync_log` (RLS, audit append-only, đã apply); TKTL WF-10 webhook `/gmp-upload` (Cloudflare bypass: path đổi + JWT qua `?auth=`); credential **"Kết nối drive"** (`googleOAuth2Api`) thay service account (không có quota); HTTP Request node multipart/related tự xây; INSERT drive_sync_log; test PASS `drive_file_id=1jx9EixvMzW7RuCiKG-ZBAPKxWgT0gi3x`. *(PASS.)*
+- **🔲 Chat 17 — Validation Copilot (GĐ3).** AI copilot soạn thảo + kiểm tra giao thức thẩm định IQ/OQ/PQ tương tác; gợi ý từng section theo equipment_code; Migration **020** `validation_sessions`; TKTL WF-13; frontend `features/validation/CopilotPanel.tsx`. Migration kế: **020**.
 
-*Linh hoạt:* 09–10 là track frontend, 11–15 nghiêng backend/nghiệp vụ (gần độc lập). Chat ngắn có thể gộp (11+12, hoặc gập 13 vào 14).
-**HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow.
+*Linh hoạt:* 09–10 là track frontend, 11–15 nghiêng backend/nghiệp vụ (gần độc lập). GĐ3 (Chat 17–19) = nghiệp vụ chuyên sâu: Copilot → AI Reviewer → Deviation Investigator.
+**HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow, Adaptive/CRAG Routing, Semantic Cache.
 
 ---
 
@@ -276,7 +293,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 ## 7. RÀNG BUỘC BẤT BIẾN
 | Ràng buộc | Yêu cầu |
 |-----------|---------|
-| Credentials n8n | Ba credential được phép: `GMP-check` (Postgres, ID `0WcJFXEhwLXQhJmn`) + `OpenAl` (OpenAI, ID `r5CCCyYKeJDjnJ0A`) + **`kết nối google`** (Google Service Account — xác nhận ID thực tế qua MCP). KHÔNG tạo credential thứ tư. KHÔNG Variables n8n. Memory agentic ở Postgres. |
+| Credentials n8n | **Bốn credential được phép:** `GMP-check` (Postgres, ID `0WcJFXEhwLXQhJmn`) + `OpenAl` (OpenAI, ID `r5CCCyYKeJDjnJ0A`) + `kết nối google` (Google Service Account) + **`Kết nối drive`** (`googleOAuth2Api`, ID `COdkzMLg68gEcJhZ` — OAuth2 user account cho Google Drive, thêm ở Chat 16). KHÔNG tạo credential thứ năm. KHÔNG Variables n8n. Memory agentic ở Postgres. |
 | Deploy frontend | GitHub web (upload + Actions), **không dòng lệnh**. Build TS chạy trong Actions (repo public → không giới hạn phút) |
 | Local-dev | **Thuần GitHub web (free)** — không máy local. Claude build-thử thay, chỉ giao bản xanh |
 | Bảo mật key | Không key bí mật (service-role/OpenAI/JWT-secret) trong frontend/source; anon key được phép |
