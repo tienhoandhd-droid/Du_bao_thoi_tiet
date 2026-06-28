@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 17**: **Validation Copilot PASS** — WF-13 active trên n8n + Migration 020 (`validation_sessions`/`session_messages`, RLS, trigger append-only) applied lên `bdttccztjtrcaztjgkot` + `CopilotPanel.tsx` deploy (tab "Validation Copilot" trong ValidationPage, chat bubble, badge grounded, trích dẫn collapsible, 0 `dangerouslySetInnerHTML`). *(Chat 16: WF-10 Google Drive Sync PASS + migration 019; Chat 13: Governance eval PASS + 50 câu GMP.)*
+**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 18**: **Web Document Search PASS** — WF-14 active (ID `6USn5CYpK9VlyExu`, 15 nodes) + `WebSearchPanel.tsx` deploy (trang "🔎 Tìm kiếm Web" trong sidebar, 4 mode, badge trust-level 4 tầng, link ra ngoài). Tavily API key nhúng CONFIG node (không phải credential n8n). *(Chat 17: WF-13 Validation Copilot PASS + migration 020; Chat 16: WF-10 Drive Sync PASS.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -42,6 +42,7 @@
 | **Equipment-Aware + Glossary (Chat 14)** | ✅ Done | Migration 017 (`equipment_glossary`); tab "Tra cứu thuật ngữ" trên ValidationPage. |
 | **WF-10 Google Drive Sync (Chat 16)** | ✅ PASS | googleOAuth2Api "Kết nối drive", HTTP Request multipart, path `/webhook/gmp-upload`; migration 019. |
 | **WF-13 Validation Copilot (Chat 17)** | ✅ **Active** | AI Agent + `rag_search` + `get_template` + `session_messages` append-only + audit; webhook `/copilot-query`; migration 020 applied. |
+| **WF-14 Web Document Search (Chat 18)** | ✅ **Active** | Tavily search_depth=advanced; trust-level mapping 4 tầng (WHO/ICH=4, ISPE/PubMed=3); 4 mode (general/guideline/literature/forum); audit INSERT; webhook `/web-search`; key trong CONFIG node. |
 
 ---
 
@@ -112,6 +113,38 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 ### ✅ Chat 10–16 — Xem git log (tóm lược)
 Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migration 014 `chat_memory`. Chat 12: UI trợ lý + nối WF-12. Chat 13: Governance eval PASS + 50 câu GMP + migration 016. Chat 14: Equipment-Aware + Glossary + migration 017/018 + tab Validation (draft/check/calculate/glossary). Chat 15: skills-as-code, runbook hồi quy. Chat 16: WF-10 Google Drive Sync PASS + migration 019.
 
+### ✅ Chat 18 — WF-14 Web Document Search + CRAVE Architecture Review
+
+**Bối cảnh:** Người dùng yêu cầu tìm kiếm tài liệu từ nguồn web công khai (chuyên luận GMP, diễn đàn, web public) theo thời gian thực — không bị đóng băng dữ liệu. Cung cấp Tavily API key `tvly-dev-2dO6nr…` (free 1000 req/month). Vấn đề: n8n sandbox không tạo được credential Tavily bằng MCP → **giải pháp: nhúng key vào CONFIG node Set (KHÔNG phải n8n credential)**.
+
+**WF-14 TKTL Web Document Search (ID: `6USn5CYpK9VlyExu`, 15 nodes, active):**
+- Webhook POST `/webhook/web-search` + CORS `*`.
+- JWT Cách B qua **Authorization header** (neverError=true; khác WF-13 dùng ?auth= query param).
+- CONFIG: `tavily_api_key`, `max_results=10`, `snippet_max=800`, `max_query_length=2000`.
+- Parse + Validate: 4 mode search — `general` (không lọc domain), `guideline` (preset WHO/ICH/PIC/S/FDA/moh.gov.vn), `literature` (PubMed/NCBI/europepmc.org), `forum` (không lọc).
+- Prepare Tavily Body: build JSON body có điều kiện `include_domains` (omit nếu rỗng).
+- Tavily Search: POST `https://api.tavily.com/search`, `search_depth=advanced`, timeout 30s, neverError=true.
+- Search OK? check: `Array.isArray($json.results)` → xử lý / backend error 502.
+- ⚡ Process Results: trust-level mapping từ domain (trust 4: who.int/ich.org/picscheme.org/ema.europa.eu/fda.gov/moh.gov.vn/dav.gov.vn; trust 3: ispe.org/pda.org/usp.org/ncbi.nlm.nih.gov/europepmc.org; trust 2: medscape.com/webmd.com/pharmacytimes.com; trust 1: còn lại) → sort trust DESC + relevance DESC → re-rank.
+- PG: Audit INSERT qua `write_audit_log` (GMP-check). Respond 200: {results, total, query, search_mode}.
+
+**Frontend (build xanh 82 modules, 455kB JS, git `f02c662`):**
+- `types/api.ts`: `WebSearchMode`, `WebSearchRequest`, `WebSearchResult`, `WebSearchResponse`.
+- `lib/api.ts`: `apiEndpoints.webSearch` + `fetchWebSearch()` (Authorization header).
+- `features/search/WebSearchPanel.tsx`: 4 mode selector (card UI), badge màu phân tầng trust, expand snippet toggle, link title + URL ra tab mới, disclaimer GMP.
+- `App.tsx`: PageId `"web-search"`, trang "🔎 Tìm kiếm Web" trong sidebar + mobile nav.
+
+**CRAVE Architecture Whitepaper (2026) — tóm lược ghi nhận cho hệ thống:**
+- **Maturity hiện tại: Mức 3+ — Governed Hybrid RAG** (RLS, audit, approved docs, versioned prompt, AI Agent, memory, Copilot, Web Search). Mục tiêu Mức 4 (Evaluated & Observable Agentic RAG) cần: eval harness tự động, adaptive/CRAG routing, observability dashboard.
+- **Tool eval:** Ragas + DeepEval + Promptfoo = **DÙNG NGOÀI n8n** (chạy CI/local qua Claude Code, dùng endpoint OpenAI hiện có — KHÔNG phát sinh credential thứ 3 trong n8n). LangGraph/CrewAI/LlamaIndex = **TRÁNH** (Python runtime + credential thứ 3).
+- **Ngưỡng kỹ thuật:** faithfulness ≥0.90 cho ngành quản chế (nâng 0.95 cho câu rủi ro cao), ngưỡng cảnh báo < 0.80. Golden dataset 50–100 câu tối thiểu (hiện có 50). pgvector đủ cho <1 triệu vector — KHÔNG cần Pinecone/Milvus.
+- **n8n bug #14361:** AI Agent + Memory node KHÔNG lưu tool call vào lịch sử memory → workaround: ghi tool call vào audit_log riêng (đã áp dụng WF-12).
+- **LazyGraphRAG:** giảm chi phí index còn ~0.1% so với GraphRAG đầy đủ — áp dụng cho Knowledge Graph thiết bị trong Postgres (không cần Neo4j/credential thứ 3).
+- **Adaptive routing:** câu đơn giản → hybrid_search_v3 thẳng (cost ~$0.001); câu phức tạp → AI Agent escalate (cost gấp 3–10x nhưng precision +42% cho câu multi-hop).
+- **Quy định mới:** ISPE GAMP Guide: AI (23/7/2025); draft Annex 22 EU về AI (7/2025, bản cuối 2026). Mọi AI output = DRAFT, human sign-off bắt buộc.
+
+**Nghiệm thu:** WF-14 active. Frontend deploy `f02c662` push lên main → Actions build → Pages.
+
 ### ✅ Chat 17 — Validation Copilot (PHA 1A + 1B + 1C + review + deploy)
 **Bối cảnh:** Codex (GPT-5.5) xây PHA 1A (migration 020) + PHA 1B (WF-13 JSON) trước khi hết quota. PHA 1C (frontend) chưa làm. Claude Code (NHÂN LỰC 2) review PHA 2A → phát hiện 2 FAIL MỀM (JWT hash sub-baseline, PHA 1C thiếu) → PHA 2B sửa đầy đủ.
 
@@ -176,20 +209,34 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 14. **(Chat 08) Repo:** áp dụng `medical-guideline-rag` (stack TS) + AI Agent n8n; nguyên-lý-only `enterprise-rag-patterns` (4 tầng defense-in-depth); **tránh cài** `n8n-nodes-agent-kit` (OpenRouter=cred thứ 3); `BioDockify` ngoài phạm vi.
 15. **(Chat 09) Dự án Vite đặt trong `app/`** (KHÔNG ghi đè gốc) để giữ app vanilla nguyên vẹn; `deploy.yml` dùng `working-directory: app`, build `app/` và deploy `app/dist`. URL live tạm hiển thị hello dashboard tới khi Chat 10 parity; quay lui = revert 1 file `deploy.yml`.
 16. **(Chat 09) Bộ phiên bản TS chốt:** Vite **5** + React **18** + TypeScript **5** + Tailwind **3** (config `.ts`; token qua biến CSS dạng channel `H S% L%` + `/<alpha-value>` để opacity chạy + tương thích shadcn) + shadcn foundation (`components.json`, `lib/utils.ts` `cn()`). CI **Node 22** (khớp bản build-thử của Claude). `package.json`/`lock` **phát theo cặp**, không sửa tay.
+17. **(Chat 18) Tavily API key = nhúng CONFIG node** (KHÔNG tạo credential thứ 3 trong n8n). HTTP Request gọi Tavily POST với `api_key` trong JSON body. Key KHÔNG commit thô lên GitHub — khi xuất WF-14 JSON cho repo thì thay bằng placeholder.
+18. **(Chat 18) Web Search JWT = Authorization header** (khác WF-13 dùng `?auth=` query param). fetchWebSearch() dùng Authorization header chuẩn.
+19. **(Chat 18 — Whitepaper) Framework AI = HỌC PATTERN, KHÔNG cài.** Ragas/DeepEval/Promptfoo chạy NGOÀI n8n (CI/Claude Code). LangGraph/CrewAI/LlamaIndex TRÁNH (vi phạm 2-credential). pgvector đủ cho <1M vector, không cần Pinecone/Milvus. Adaptive routing: câu đơn giản → hybrid_search_v3, câu phức tạp → AI Agent escalate.
+20. **(Chat 18 — Whitepaper) n8n bug #14361:** AI Agent + Memory node KHÔNG lưu tool call vào lịch sử. Workaround đã áp dụng (WF-12): ghi tool call vào audit_log riêng sau mỗi lượt.
+21. **(Chat 18 — Whitepaper) Ngưỡng faithfulness:** ≥0.90 cho ngành quản chế, ≥0.95 cho câu rủi ro cao; < 0.80 = cảnh báo production. Golden dataset tối thiểu 50–100 câu.
 
 ---
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ **17 Validation Copilot (WF-13 + migration 020 + CopilotPanel)**
+**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ 17 Validation Copilot (WF-13 + migration 020 + CopilotPanel) · ✅ **18 Web Document Search (WF-14 + WebSearchPanel, trust 4 tầng)**
 
-**Đã hoàn thành tất cả mục tiêu đã đặt ra (Chat 09→17). Kế tiếp tùy nhu cầu:**
-- Ingest thêm SOP thật vào hệ thống (RUNBOOK-CHAT05).
-- Tích hợp module Literature Search (WF-11 đã active) vào frontend.
-- Knowledge Graph hoặc Redis Cache (HOÃN dài hạn).
-- Thêm loại thiết bị / template IQ-OQ-PQ mới vào `equipment_registry` + `validation_templates`.
+**CRAVE Maturity: Mức 3+ → Tiếp theo hướng Mức 4 (Evaluated & Observable Agentic RAG):**
 
-**HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow, WF-11 nạp lại ON CONFLICT.
+**Ưu tiên cao (kế tiếp):**
+- **Eval Harness tự động** — Ragas/DeepEval chạy NGOÀI n8n qua CI/Claude Code (không phát sinh credential thứ 3); chấm điểm faithfulness ≥0.90 trên 50 golden questions hiện có; ngưỡng fail < 0.80 chặn release. Mở rộng golden dataset lên 100 câu (phủ multi-hop, edge case, câu đa thiết bị).
+- **Adaptive/CRAG Routing** — phân loại query: câu đơn giản → hybrid_search_v3 thẳng (cost ~$0.001); câu phức tạp → AI Agent (cost gấp 3–10x, precision +42%). Giúp giảm chi phí và tăng tốc độ trung bình.
+- **Observability Dashboard** — ghi latency/token/cost/citation_rate/hallucination_flag vào bảng mới (migration 021); cảnh báo khi faithfulness < 0.80. Pattern từ Langfuse nhưng tự xây trong Supabase (không cài Langfuse — tránh hạ tầng + credential).
+
+**Ưu tiên trung bình:**
+- **AI Reviewer SOP** — đánh giá SOP nội bộ theo checklist WHO/ICH/GAMP5/ALCOA+/Annex 11/EU Annex 22 (draft 7/2025); mọi output là DRAFT, human sign-off bắt buộc.
+- **Equipment Knowledge Graph** — graph quan hệ thiết bị trong Postgres (pattern LazyGraphRAG, chi phí index ~0.1% so với GraphRAG đầy đủ); KHÔNG cần Neo4j (tránh credential thứ 3).
+- **Tích hợp Literature Search (WF-11)** — thêm tab/panel tìm kiếm academic literature từ PubMed/NCBI vào frontend; kết hợp với Web Search (WF-14) cho multi-source discovery.
+- **Deviation Investigator** — hỗ trợ điều tra sai lệch (root cause + CAPA gợi ý); human-in-the-loop bắt buộc.
+
+**HOÃN dài hạn:** Semantic Cache có version-control, Prompt Registry nâng cấp + Governance Sensitivity Layer, tách WF-02 thành 5 workflow, WF-11 nạp lại ON CONFLICT.
+
+**Bất biến từ Whitepaper 2026:** KHÔNG cài LangGraph/CrewAI/LlamaIndex (Python runtime + credential thứ 3). pgvector giữ nguyên (đủ cho <1 triệu vector). n8n AI Agent native + Supabase giữ nguyên. Ingest thêm SOP thật: RUNBOOK-CHAT05.
 
 ---
 
@@ -223,7 +270,7 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 | OpenAI runtime | Chỉ từ n8n backend |
 | AI sources | Chỉ `approved_for_ai_use`; **mọi tool agent qua `hybrid_search_v3`** (không SELECT thô) |
 | Audit log | Append-only (INSERT); mỗi lượt trợ lý đều ghi |
-| Migration | 001→011 (cài từ đầu) → 013–015, 017–020 applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. Mới tiếp = 021+. |
+| Migration | 001→011 (cài từ đầu) → 013–020 applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. **Mới tiếp = 021+.** |
 | Ngôn ngữ | Tiếng Việt |
 
 ---
@@ -235,6 +282,7 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 - **Bộ workflow:** `WF-01,02(__2_),06,07,08` (Cách B + CORS) + `WF-03,04,05,09` (Cách B) + `WF-11` (ID thật). Bỏ WF-02(__1_).
 - **WF-12** (Chat 11): AI Agent + tools governed + memory Postgres + verify Cách B + audit. ID `DMcZCeYXTFRUyufV`.
 - **WF-13** (Chat 17): Validation Copilot, webhook `/copilot-query`, JWT qua `?auth=` query param. ID `TcusASYdTTHaoygD`. Sub-baseline hash `b8bed615…`.
+- **WF-14** (Chat 18): Web Document Search, webhook `/web-search`, JWT qua Authorization header (neverError). ID `6USn5CYpK9VlyExu`. Tavily key trong CONFIG node. Trust-level 4 tầng.
 - **Params verify byte-identical; baseline `d22a5154…cb27759` (WF-01→09); sub-baseline WF-13 `b8bed615…` (query param variant).**
 - **Repo GitHub Pages chỉ chứa frontend.** Workflow ở n8n, SQL ở Supabase — không đẩy lên GitHub.
 
