@@ -1,0 +1,1068 @@
+{
+  "manifestVersion": "1.0.0",
+  "project": "CRAVE GMP Validation Intelligence Platform",
+  "scope": "TKTL WF-01..WF-14 only",
+  "capturedAt": "2026-06-29",
+  "git": {
+    "branch": "main",
+    "head": "c951b01",
+    "originComparison": "ahead origin/main 2 commits",
+    "remoteMutationPerformed": false
+  },
+  "n8n": {
+    "instance": "https://n8n.cpc1hn.com",
+    "readOnlyCapture": true,
+    "liveMutationPerformed": false,
+    "workflowCount": 14,
+    "allPublished": true,
+    "credentialVisibility": "MCP sanitized; binding evidence is explicitly classified per node"
+  },
+  "redactionPolicy": {
+    "secretsStored": false,
+    "placeholders": [
+      "__REDACTED_SUPABASE_ANON_KEY__",
+      "__REDACTED_TAVILY_API_KEY__"
+    ],
+    "credentialIdsAreReferencesNotSecrets": true
+  },
+  "overallStatus": "READY_FOR_GITHUB_APPROVAL_WITH_KNOWN_LIVE_FINDINGS",
+  "workflows": [
+    {
+      "workflowNumber": "01",
+      "id": "1VrdYDoQ8zqEnWdD",
+      "name": "TKTL WF-01 Document Ingest",
+      "file": "workflows/TKTL-WF-01-document-ingest.json",
+      "fileSha256": "a8955c485f1feec2ce86032ba5426552b481556b0a75ea419267e3c188a7d10e",
+      "live": {
+        "published": true,
+        "draftVersionId": "025604bc-927b-4b2c-a473-74b79c5ce00b",
+        "activeVersionId": "025604bc-927b-4b2c-a473-74b79c5ce00b",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:36.474Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 20,
+        "connectionCount": 20,
+        "webhook": {
+          "node": "Webhook Ingest",
+          "path": "ingest-document",
+          "method": "POST",
+          "webhookId": "ingest-document"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Get User Roles",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Check Duplicate",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Create Document",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Embedding",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Insert Chunks + Update + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "02",
+      "id": "nZA5xAnubald5h5Q",
+      "name": "TKTL WF-02 RAG Query",
+      "file": "workflows/TKTL-WF-02-rag-query.json",
+      "fileSha256": "9180d4be715e563db87be3aafb72ea4301821653592717c0c8b0132815c7b406",
+      "live": {
+        "published": true,
+        "draftVersionId": "767e4afb-aad9-4019-ac86-befd3a91cdc5",
+        "activeVersionId": "767e4afb-aad9-4019-ac86-befd3a91cdc5",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:40.882Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 26,
+        "connectionCount": 27,
+        "webhook": {
+          "node": "Webhook RAG",
+          "path": "rag-query",
+          "method": "POST",
+          "webhookId": "rag-query"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Get User Info",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Query Expansion",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Embed Query",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Hybrid Search",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Rerank",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Get System Prompt",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Chat Answer",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Save Query + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "reconstructed-from-live-node-auth-type",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "03",
+      "id": "Nya2cM5pHbCvzr7Y",
+      "name": "TKTL WF-03 Draft Protocol",
+      "file": "workflows/TKTL-WF-03-draft-protocol.json",
+      "fileSha256": "a328954e9bb366e49f8bb91431cae75b4e8b7fffece97c2a3a691e549ec81262",
+      "live": {
+        "published": true,
+        "draftVersionId": "66c5e44a-0859-44b9-a868-e5936aa0d13e",
+        "activeVersionId": "66c5e44a-0859-44b9-a868-e5936aa0d13e",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:47.382Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 14,
+        "connectionCount": 14,
+        "webhook": {
+          "node": "Webhook Draft",
+          "path": "draft-protocol",
+          "method": "POST",
+          "webhookId": "draft-protocol"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Load Template + Equipment + Prompt",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Draft Protocol",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Save Protocol + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "04",
+      "id": "lXWCvmXltec0RTgo",
+      "name": "TKTL WF-04 Check Protocol",
+      "file": "workflows/TKTL-WF-04-check-protocol.json",
+      "fileSha256": "e74b88c5f22d42a3009ba3ab01e1480f9a51266e89192384467165f3859e9098",
+      "live": {
+        "published": true,
+        "draftVersionId": "fb751091-66e1-4324-ba60-9757a3283692",
+        "activeVersionId": "fb751091-66e1-4324-ba60-9757a3283692",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:51.359Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 14,
+        "connectionCount": 14,
+        "webhook": {
+          "node": "Webhook Check",
+          "path": "check-protocol",
+          "method": "POST",
+          "webhookId": "check-protocol"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Load Data",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Semantic Review",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Save Review + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "05",
+      "id": "CPh7Z1g4EwyOrVo0",
+      "name": "TKTL WF-05 Calculation Helper",
+      "file": "workflows/TKTL-WF-05-calculation-helper.json",
+      "fileSha256": "143f3ba991cf851791d2b33be35f7bfc729e9b8fc325993810cc9a869133ab1c",
+      "live": {
+        "published": true,
+        "draftVersionId": "1a3919c5-59cb-4127-a09e-6460084b991a",
+        "activeVersionId": "1a3919c5-59cb-4127-a09e-6460084b991a",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:54.950Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 14,
+        "connectionCount": 14,
+        "webhook": {
+          "node": "Webhook Calc",
+          "path": "calculate-report",
+          "method": "POST",
+          "webhookId": "calculate-report"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Load Formula + Prompt",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Interpret",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Save Job + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "06",
+      "id": "o4fuUanxRrD7qQoG",
+      "name": "TKTL WF-06 Document Search",
+      "file": "workflows/TKTL-WF-06-document-search.json",
+      "fileSha256": "21dd83d9f1eab39e729e7914d7b66fd26b8ffdf13ac3b27cc3fb777521157b95",
+      "live": {
+        "published": true,
+        "draftVersionId": "f7b7ee5a-870b-446d-9a1e-e06ff1f4fe22",
+        "activeVersionId": "f7b7ee5a-870b-446d-9a1e-e06ff1f4fe22",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:28:21.768Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 9,
+        "connectionCount": 9,
+        "webhook": {
+          "node": "Webhook Search",
+          "path": "search-docs",
+          "method": "POST",
+          "webhookId": "search-docs"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Search Documents",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "07",
+      "id": "KFvOoabtnptFghSy",
+      "name": "TKTL WF-07 Approve Document",
+      "file": "workflows/TKTL-WF-07-approve-document.json",
+      "fileSha256": "2fc622f4984698864b7b7b8bc0871d68323f1eaa0b3e190995e79dee33be4ac6",
+      "live": {
+        "published": true,
+        "draftVersionId": "8f2d714c-48eb-4d00-8316-7fae6f40007f",
+        "activeVersionId": "8f2d714c-48eb-4d00-8316-7fae6f40007f",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:57.251Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 12,
+        "connectionCount": 12,
+        "webhook": {
+          "node": "Webhook Approve",
+          "path": "approve-document",
+          "method": "POST",
+          "webhookId": "approve-document"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Get Roles",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Update Status",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "08",
+      "id": "5wwaxP51FgeXuDi3",
+      "name": "TKTL WF-08 Health Monitor",
+      "file": "workflows/TKTL-WF-08-health-monitor.json",
+      "fileSha256": "734a0c99d85eaae5cf41f0b9df98852c0674600363e3b874249fb327153d18c1",
+      "live": {
+        "published": true,
+        "draftVersionId": "821c2f84-221c-4bae-a6d3-c881c8b0aa20",
+        "activeVersionId": "821c2f84-221c-4bae-a6d3-c881c8b0aa20",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-26T15:21:12.730Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 5,
+        "connectionCount": 4,
+        "webhook": {
+          "node": "Webhook Health",
+          "path": "health",
+          "method": "GET",
+          "webhookId": "health"
+        },
+        "jwt": {
+          "required": false,
+          "reason": "Không có node Verify JWT; WF-08 là health endpoint công khai theo live graph."
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Get Stats",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Check API",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "09",
+      "id": "old58Th1kWOvMcTp",
+      "name": "TKTL WF-09 Web Source Ingest",
+      "file": "workflows/TKTL-WF-09-web-source-ingest.json",
+      "fileSha256": "72efcb4f386ad1d0966c18fb16a81db851b8bbc09827490e79f419f91fdc4d84",
+      "live": {
+        "published": true,
+        "draftVersionId": "c03ee46b-2ccb-49ae-b265-ba0dd284c5f5",
+        "activeVersionId": "c03ee46b-2ccb-49ae-b265-ba0dd284c5f5",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:25:59.869Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 20,
+        "connectionCount": 21,
+        "webhook": {
+          "node": "Webhook Web Ingest",
+          "path": "ingest-web",
+          "method": "POST",
+          "webhookId": "ingest-web"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Check Role",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Embedding",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Insert Document",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Insert Chunks + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "10",
+      "id": "nFYb0JyZ6MZf5OVR",
+      "name": "TKTL WF-10 Google Drive Sync",
+      "file": "workflows/TKTL-WF-10-google-drive-sync.json",
+      "fileSha256": "880c67a4aa8c967d8dc8cb24ff192de6e0851922095ba0a83cb4d8542fb9f776",
+      "live": {
+        "published": true,
+        "draftVersionId": "f0e0de35-1577-4bd4-9468-fcde186016bc",
+        "activeVersionId": "f0e0de35-1577-4bd4-9468-fcde186016bc",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-28T05:26:04.346Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 15,
+        "connectionCount": 18,
+        "webhook": {
+          "node": "Webhook Drive Sync",
+          "path": "gmp-upload",
+          "method": "POST",
+          "webhookId": "drive-sync"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "query",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "Google Drive: Upload",
+            "type": "googleOAuth2Api",
+            "name": "CRAVE-Google-Workspace",
+            "id": "REPLACE",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "11",
+      "id": "yrLN2Y5tEC8jJwGR",
+      "name": "TKTL WF-11 Literature Search",
+      "file": "workflows/TKTL-WF-11-literature-search.json",
+      "fileSha256": "0211fa57dbcabaebd6a9c2d5003019d33e947363c43f1b49400b6ebccf6ca977",
+      "live": {
+        "published": true,
+        "draftVersionId": "bad508fe-756e-42e5-b6e5-19786d97e6f8",
+        "activeVersionId": "bad508fe-756e-42e5-b6e5-19786d97e6f8",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T11:26:02.559Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 23,
+        "connectionCount": 25,
+        "webhook": {
+          "node": "Webhook Literature Search",
+          "path": "literature-search",
+          "method": "POST",
+          "webhookId": "literature-search"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Check Role",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI: Embedding",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Insert Document",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Insert Chunks + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "12",
+      "id": "DMcZCeYXTFRUyufV",
+      "name": "TKTL WF-12 - Loi tro ly QA agentic",
+      "file": "workflows/TKTL-WF-12-qa-assistant-agentic.json",
+      "fileSha256": "044aab37daf67743ae974375ef844c0ddef8fd579f45027fd0244736fbf90327",
+      "live": {
+        "published": true,
+        "draftVersionId": "8d6c7110-f951-49e7-a238-e81520aeaa57",
+        "activeVersionId": "8d6c7110-f951-49e7-a238-e81520aeaa57",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-27T21:13:13.459Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 16,
+        "connectionCount": 16,
+        "webhook": {
+          "node": "Webhook",
+          "path": "assistant-query",
+          "method": "POST",
+          "webhookId": "1ed2cbc6-f5f5-4b13-918b-5fe74c64ed4b"
+        },
+        "jwt": {
+          "required": true,
+          "node": "Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "body",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "Load Memory",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "Embed Query",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI Chat Model",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "rag_search",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "literature_lookup",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "Save Memory User",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "Save Memory Assistant",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "Audit INSERT",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "13",
+      "id": "TcusASYdTTHaoygD",
+      "name": "TKTL WF-13 Validation Copilot",
+      "file": "workflows/TKTL-WF-13-validation-copilot.json",
+      "fileSha256": "1ebdb72f4584dad85195c60daa5e6eef72f100cb5eddf6ce15104e3df3a783d2",
+      "live": {
+        "published": true,
+        "draftVersionId": "ce4f4ce7-731e-4e95-8fc1-e0ba83816315",
+        "activeVersionId": "ce4f4ce7-731e-4e95-8fc1-e0ba83816315",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-28T07:07:27.608Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 18,
+        "connectionCount": 23,
+        "webhook": {
+          "node": "Webhook Copilot Query",
+          "path": "copilot-query",
+          "method": "POST",
+          "webhookId": "copilot-query"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "query",
+          "onError": "continueErrorOutput",
+          "compliant": true
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Prepare Session + History",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "Embed Query",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "OpenAI Chat Model",
+            "type": "openAiApi",
+            "name": "OpenAl",
+            "id": "r5CCCyYKeJDjnJ0A",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "rag_search",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "get_template",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          },
+          {
+            "node": "PG: Save Messages + Audit",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "tracked-repo-source-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "MATCHED_ACTIVE_GRAPH"
+      }
+    },
+    {
+      "workflowNumber": "14",
+      "id": "6USn5CYpK9VlyExu",
+      "name": "TKTL WF-14 Web Document Search",
+      "file": "workflows/TKTL-WF-14-web-document-search.json",
+      "fileSha256": "d3a6834b8087ef73e5fb7d5fd32064a026dff3ce1de024dc465b341f5d2b22a6",
+      "live": {
+        "published": true,
+        "draftVersionId": "f432217d-c329-45cd-90a7-2a0055719549",
+        "activeVersionId": "70afe9fe-2325-4413-a1b1-860f0c05cb2f",
+        "draftPublishedDrift": true,
+        "updatedAt": "2026-06-28T08:26:01.168Z"
+      },
+      "export": {
+        "represents": "activeVersion",
+        "safeImportActive": false,
+        "nodeCount": 15,
+        "connectionCount": 14,
+        "webhook": {
+          "node": "🔍 Webhook Web Search",
+          "path": "web-search",
+          "method": "POST",
+          "webhookId": "2fd123c8-4a74-4d0f-8edb-dbc1f75c1475"
+        },
+        "jwt": {
+          "required": true,
+          "node": "🔐 Verify JWT",
+          "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+          "method": "GET",
+          "hasAuthorization": true,
+          "hasApikey": true,
+          "tokenSource": "header",
+          "onError": null,
+          "compliant": false
+        },
+        "credentialBindings": [
+          {
+            "node": "PG: Audit INSERT",
+            "type": "postgres",
+            "name": "GMP-check",
+            "id": "0WcJFXEhwLXQhJmn",
+            "evidence": "preexisting-untracked-binding-plus-live-node-match",
+            "liveMcpBindingVisible": false
+          }
+        ],
+        "redactions": [
+          "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__",
+          "Tavily literal secret -> __REDACTED_TAVILY_API_KEY__"
+        ]
+      },
+      "reconciliation": {
+        "status": "KNOWN_LIVE_DRIFT",
+        "findings": [
+          "draftVersionId khác activeVersionId",
+          "literal Tavily secret tồn tại trong live CONFIG",
+          "Verify JWT thiếu onError=continueErrorOutput"
+        ]
+      }
+    }
+  ]
+}

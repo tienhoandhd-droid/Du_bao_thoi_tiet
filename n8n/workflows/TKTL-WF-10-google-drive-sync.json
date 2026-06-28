@@ -1,0 +1,561 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "10",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "nFYb0JyZ6MZf5OVR",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "f0e0de35-1577-4bd4-9468-fcde186016bc",
+      "activeVersionId": "f0e0de35-1577-4bd4-9468-fcde186016bc",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-28T01:45:14.078Z",
+      "updatedAt": "2026-06-28T05:26:04.346Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "Google Drive: Upload",
+        "type": "googleOAuth2Api",
+        "name": "CRAVE-Google-Workspace",
+        "id": "REPLACE",
+        "evidence": "tracked-repo-source-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "nFYb0JyZ6MZf5OVR",
+  "name": "TKTL WF-10 Google Drive Sync",
+  "active": false,
+  "versionId": "f0e0de35-1577-4bd4-9468-fcde186016bc",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gmp-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "45c3fa0e-cff6-4ac6-86f6-e42defedcb49",
+      "name": "Webhook Drive Sync",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        432
+      ],
+      "webhookId": "drive-sync"
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.query.auth }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        432
+      ],
+      "id": "491d69ce-7895-4c35-987d-b6784b21c0fd",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config-max-file-size",
+              "name": "max_file_size_mb",
+              "value": 10,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "196910c3-c00e-46a2-9071-4076e602c3b1",
+      "name": "CONFIG",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $('Webhook Drive Sync').first().json;\nconst verifiedUser = $('🔐 Verify JWT').first().json;\nconst body = request.body || {};\n\nconst fileName = typeof body.file_name === 'string' ? body.file_name.trim() : '';\nconst fileContentBase64 = typeof body.file_content_base64 === 'string' ? body.file_content_base64.trim() : '';\nconst mimeType = typeof body.mime_type === 'string' ? body.mime_type.trim() : 'application/pdf';\n\nif (!fileName || !fileContentBase64) {\n  return [{ json: { error: true, status: 400, message: 'Thiếu file_name hoặc file_content_base64' } }];\n}\n\nif (!verifiedUser.id) {\n  return [{ json: { error: true, status: 401, message: 'Không lấy được user.id từ Verify JWT' } }];\n}\n\nconst forbiddenChars = ['/', '\\\\', '..', '\u0000', '*', '?', '[', ']', '{', '}'];\nif (forbiddenChars.some(c => fileName.includes(c)) || fileName.length > 255) {\n  return [{ json: { error: true, status: 400, message: 'file_name không hợp lệ' } }];\n}\n\nconst allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'image/png', 'image/jpeg'];\nif (!allowedMimeTypes.includes(mimeType)) {\n  return [{ json: { error: true, status: 400, message: 'mime_type không được hỗ trợ. Chấp nhận: PDF, Word, TXT, PNG, JPEG' } }];\n}\n\nconst estimatedBytes = Math.ceil(fileContentBase64.length * 0.75);\nif (estimatedBytes > 10 * 1024 * 1024) {\n  return [{ json: { error: true, status: 413, message: 'File quá lớn (tối đa 10MB)' } }];\n}\n\nreturn [{ json: { error: false, user_id: verifiedUser.id, file_name: fileName, file_content_base64: fileContentBase64, mime_type: mimeType } }];"
+      },
+      "id": "6b3bf8bd-6f51-438d-a77f-a23176e272ed",
+      "name": "Parse + Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "input-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d24fb300-68d4-4823-a891-1088a033379f",
+      "name": "Input Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sync-triggered-by",
+              "name": "triggered_by",
+              "value": "={{ $('🔐 Verify JWT').first().json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "sync-file-path",
+              "name": "file_path",
+              "value": "={{ $('Parse + Validate').first().json.file_name }}",
+              "type": "string"
+            },
+            {
+              "id": "sync-drive-file-id",
+              "name": "drive_file_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "sync-status",
+              "name": "status",
+              "value": "synced",
+              "type": "string"
+            },
+            {
+              "id": "sync-synced-at",
+              "name": "synced_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c727fdf9-f816-4ec1-9e15-309c1cabb8f2",
+      "name": "Prepare Sync Log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/rest/v1/drive_sync_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Webhook Drive Sync').first().json.query.auth }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ triggered_by: $json.triggered_by, file_path: $json.file_path, drive_file_id: $json.drive_file_id, status: 'synced', synced_at: $json.synced_at }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "3facc13f-1c8a-403f-9946-60cd197aab8f",
+      "name": "REST: Insert Sync Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        768
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, file_name: $('Parse + Validate').first().json.file_name, drive_file_id: $('Prepare Sync Log').first().json.drive_file_id, synced_at: $('Prepare Sync Log').first().json.synced_at }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "26740a19-3f52-4853-944e-7aaf01ca1a61",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1568,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "1e9658fc-d88e-461f-b675-4b2f30f87f09",
+      "name": "Auth 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst detail = raw.error?.message || raw.message || 'Không thể giải mã base64';\nreturn [{ json: { error: true, status: 422, message: 'Giải mã file thất bại: ' + detail } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        288
+      ],
+      "id": "f8effbcd-9119-404a-b6df-5b81fae1543d",
+      "name": "Decode Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n// Nếu là response thành công từ Drive (có id, không có error) → bỏ qua\nif (raw.id && !raw.error) {\n  return [];\n}\nconst errMsg = raw.error?.message || raw.message || 'Google Drive từ chối yêu cầu';\nconst errBody = JSON.stringify(raw.error?.response?.body || raw.error || raw);\nreturn [{ json: { error: true, status: 502, message: 'GD403: ' + errMsg + ' | body: ' + errBody } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        480
+      ],
+      "id": "95d4e591-c11f-4bb8-9d86-be4b6ceaa4ce",
+      "name": "Drive Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst detail = raw.error?.message || raw.message || 'Supabase REST từ chối yêu cầu';\nreturn [{ json: { error: true, status: 502, message: 'Tệp đã lên Drive nhưng không ghi được drive_sync_log: ' + detail } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        672
+      ],
+      "id": "ebd0a04f-a8d6-44aa-b1cb-593f4ba1ee05",
+      "name": "Log Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "a87503f6-2a85-4073-94f2-a268e529f525",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1792,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst base64Data = item.json.file_content_base64;\nconst fileName = item.json.file_name;\nconst mimeType = item.json.mime_type || 'application/pdf';\nconst folderId = '15Fo7BqcDQJqzPPuqds-AuScqeNqOyLUz';\n\nconst buffer = Buffer.from(base64Data, 'base64');\nif (buffer.length > 10 * 1024 * 1024) {\n  throw new Error('File quá lớn: ' + buffer.length + ' bytes (tối đa 10MB)');\n}\n\nconst boundary = 'gmp_' + Date.now();\nconst metadata = JSON.stringify({ name: fileName, parents: [folderId], mimeType: mimeType });\nconst part1 = Buffer.from(\n  `--${boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n${metadata}\\r\\n--${boundary}\\r\\nContent-Type: ${mimeType}\\r\\n\\r\\n`,\n  'utf-8'\n);\nconst part2 = buffer;\nconst close = Buffer.from(`\\r\\n--${boundary}--`, 'utf-8');\nconst multipartBuffer = Buffer.concat([part1, part2, close]);\n\nconst contentType = `multipart/related; boundary=\"${boundary}\"`;\nconst binaryData = await this.helpers.prepareBinaryData(multipartBuffer, 'drive_upload.bin', contentType);\n\nreturn [{\n  json: {\n    file_name: fileName,\n    mime_type: mimeType,\n    user_id: item.json.user_id,\n    file_size: buffer.length\n  },\n  binary: {\n    driveBody: binaryData\n  }\n}];"
+      },
+      "id": "8c99c3fa-7f4b-402c-b77c-15ba2cb6de32",
+      "name": "Decode Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        576
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id%2Cname%2CwebViewLink",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "driveBody",
+        "options": {}
+      },
+      "id": "444cbad3-a347-41fd-a8ce-570bc60025c0",
+      "name": "Google Drive: Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        672
+      ],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "REPLACE",
+          "name": "CRAVE-Google-Workspace"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Drive Sync": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "CONFIG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIG": {
+      "main": [
+        [
+          {
+            "node": "Parse + Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Validate": {
+      "main": [
+        [
+          {
+            "node": "Input Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Error?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decode Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sync Log": {
+      "main": [
+        [
+          {
+            "node": "REST: Insert Sync Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REST: Insert Sync Log": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Base64": {
+      "main": [
+        [
+          {
+            "node": "Google Drive: Upload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decode Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive: Upload": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sync Log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Drive Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

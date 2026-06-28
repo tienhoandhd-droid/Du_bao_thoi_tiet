@@ -1,0 +1,699 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "01",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "1VrdYDoQ8zqEnWdD",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "025604bc-927b-4b2c-a473-74b79c5ce00b",
+      "activeVersionId": "025604bc-927b-4b2c-a473-74b79c5ce00b",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-24T06:56:46.596Z",
+      "updatedAt": "2026-06-27T11:25:36.474Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Get User Roles",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Check Duplicate",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Create Document",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Embedding",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Insert Chunks + Update + Audit",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "1VrdYDoQ8zqEnWdD",
+  "name": "TKTL WF-01 Document Ingest",
+  "active": false,
+  "versionId": "025604bc-927b-4b2c-a473-74b79c5ce00b",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ingest-document",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "318d7622-fc2c-454e-b777-ef4f7d894f00",
+      "name": "Webhook Ingest",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        144
+      ],
+      "webhookId": "ingest-document"
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        112,
+        144
+      ],
+      "id": "d2fbb574-ab34-4c8a-8200-d6397f962516",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function sha256Hex(input){\n  let msg;\n  if (typeof input==='string') msg=new TextEncoder().encode(input);\n  else if (input instanceof Uint8Array) msg=input;\n  else if (typeof Buffer!=='undefined' && Buffer.isBuffer(input)) msg=new Uint8Array(input);\n  else msg=new TextEncoder().encode(String(input));\n  const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);\n  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;\n  const l=msg.length;\n  const bitLenHi=Math.floor(l/0x20000000)>>>0;\n  const bitLenLo=(l<<3)>>>0;\n  const withOne=l+1;\n  const k=(56-(withOne%64)+64)%64;\n  const total=withOne+k+8;\n  const m=new Uint8Array(total); m.set(msg,0); m[l]=0x80;\n  const dv=new DataView(m.buffer);\n  dv.setUint32(total-8,bitLenHi); dv.setUint32(total-4,bitLenLo);\n  const w=new Uint32Array(64);\n  const rotr=(x,n)=>((x>>>n)|(x<<(32-n)))>>>0;\n  for(let off=0;off<total;off+=64){\n    for(let i=0;i<16;i++) w[i]=dv.getUint32(off+i*4);\n    for(let i=16;i<64;i++){\n      const s0=(rotr(w[i-15],7)^rotr(w[i-15],18)^(w[i-15]>>>3))>>>0;\n      const s1=(rotr(w[i-2],17)^rotr(w[i-2],19)^(w[i-2]>>>10))>>>0;\n      w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;\n    }\n    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;\n    for(let i=0;i<64;i++){\n      const S1=(rotr(e,6)^rotr(e,11)^rotr(e,25))>>>0;\n      const ch=((e&f)^((~e)&g))>>>0;\n      const t1=(h+S1+ch+K[i]+w[i])>>>0;\n      const S0=(rotr(a,2)^rotr(a,13)^rotr(a,22))>>>0;\n      const maj=((a&b)^(a&c)^(b&c))>>>0;\n      const t2=(S0+maj)>>>0;\n      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;\n    }\n    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;\n  }\n  const toHex=x=>('00000000'+(x>>>0).toString(16)).slice(-8);\n  return toHex(h0)+toHex(h1)+toHex(h2)+toHex(h3)+toHex(h4)+toHex(h5)+toHex(h6)+toHex(h7);\n}\n// ========================================\n// Parse request + decode JWT + validate input + tính hash\n// ========================================\nconst headers = $('Webhook Ingest').first().json.headers || {};\nconst body = $('Webhook Ingest').first().json.body || {};\n\n// --- Decode JWT để lấy user_id ---\nconst authHeader = headers.authorization || headers.Authorization || '';\nconst token = authHeader.replace('Bearer ', '');\n\nif (!token) {\n  return [{ json: { error: true, message: 'Thiếu token xác thực', status: 401 } }];\n}\n\nlet userId = null;\ntry {\n  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());\n  userId = payload.sub;\n  if (!userId) throw new Error('Token không chứa user ID');\n} catch (e) {\n  return [{ json: { error: true, message: 'Token không hợp lệ: ' + e.message, status: 401 } }];\n}\n\n// --- Validate input ---\nconst required = ['document_code', 'document_title', 'file_content', 'file_name'];\nconst missing = required.filter(f => !body[f]);\nif (missing.length > 0) {\n  return [{ json: { error: true, message: 'Thiếu trường bắt buộc: ' + missing.join(', '), status: 400 } }];\n}\n\nconst validLangs = ['vi', 'en', 'vi-en', 'other'];\nconst langCode = body.language_code || 'vi';\nif (!validLangs.includes(langCode)) {\n  return [{ json: { error: true, message: 'language_code không hợp lệ', status: 400 } }];\n}\n\n// --- Tính SHA256 hash ---\n\nconst fileBuffer = Buffer.from(body.file_content, 'base64');\nconst fileHash = sha256Hex(fileBuffer);\n\nreturn [{\n  json: {\n    error: false,\n    user_id: userId,\n    document_code: body.document_code,\n    document_title: body.document_title,\n    document_type: body.document_type || 'sop',\n    language_code: langCode,\n    source_type: body.source_type || 'internal_sop',\n    version: body.version || '01',\n    owner_department: body.owner_department || null,\n    equipment_type: body.equipment_type || null,\n    equipment_code: body.equipment_code || null,\n    process_area: body.process_area || null,\n    translation_of_document_id: body.translation_of_document_id || null,\n    is_ai_translated: body.is_ai_translated || false,\n    file_content: body.file_content,\n    file_name: body.file_name,\n    mime_type: body.mime_type || 'application/pdf',\n    file_hash: fileHash,\n    file_size_bytes: fileBuffer.length,\n    document_group_id: (body.source_type || 'INTERNAL_SOP').toUpperCase() + '-' + body.document_code\n  }\n}];"
+      },
+      "id": "e3012cbe-4a5d-45df-b78c-4fcbaaf9203f",
+      "name": "Parse + Validate + Hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4204f0c2-6fd4-45da-837a-290d9b4078b6",
+      "name": "Input OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "9f96cd80-bddf-4464-ac55-a22fcf2c22c1",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        784,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1::uuid AND ur.is_active = true",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "1ea5dee4-ac57-49eb-8253-54f3661651b9",
+      "name": "PG: Get User Roles",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        784,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Kiểm tra quyền upload\nconst roles = $input.all().map(item => item.json.role_name);\nconst prevData = $('Parse + Validate + Hash').first().json;\n\nconst canUpload = roles.some(r => ['admin', 'qa_manager', 'validation'].includes(r));\n\nif (roles.length === 0 || !canUpload) {\n  return [{ json: { error: true, message: 'Bạn không có quyền upload tài liệu', status: 403 } }];\n}\n\nreturn [{ json: { ...prevData, user_roles: roles, primary_role: roles[0] } }];"
+      },
+      "id": "804b1fb8-cf06-41ce-8373-85dc270c2b73",
+      "name": "Check Upload Permission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "547f0880-1538-4005-a07c-a084516f01d2",
+      "name": "Permission OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "d23aea29-2176-4402-bd80-144e0d11fe31",
+      "name": "Permission Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT is_duplicate, existing_document_id, existing_status, match_type FROM check_document_duplicate($1, $2, $3::language_code, $4)",
+        "options": {
+          "queryReplacement": "={{ [$json.document_code, $json.version, $json.language_code, $json.file_hash] }}"
+        }
+      },
+      "id": "89890543-5700-40f9-992f-5affc02a4f1d",
+      "name": "PG: Check Duplicate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1456,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Kiểm tra kết quả duplicate\nconst dupResult = $input.first().json;\nconst prevData = $('Check Upload Permission').first().json;\n\nif (dupResult && dupResult.is_duplicate === true) {\n  return [{ json: {\n    error: true, is_duplicate: true,\n    message: 'Tài liệu trùng lặp (' + dupResult.match_type + '). ID: ' + dupResult.existing_document_id,\n    status: 409\n  }}];\n}\n\nreturn [{ json: { ...prevData, is_duplicate: false } }];"
+      },
+      "id": "fe920a3c-3d7b-4b18-ad98-95e5768f8ece",
+      "name": "Process Dup Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.is_duplicate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dc38582d-2f2d-420e-a2c1-3f4178cc20cd",
+      "name": "Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message, duplicate: true }) }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "c27086c0-a7cc-43ab-8624-820f714e32fc",
+      "name": "Duplicate Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO documents (document_group_id, document_code, document_title, document_type, language_code, translation_status, translation_of_document_id, is_ai_translated, source_type, version, owner_department, equipment_type, equipment_code, process_area, file_name, file_hash, file_size_bytes, mime_type, status, uploaded_by) VALUES ($1, $2, $3, $4::document_type, $5::language_code, CASE WHEN $6::boolean THEN 'ai_translation_draft'::translation_status WHEN $7::uuid IS NOT NULL THEN 'official_translation'::translation_status ELSE 'original'::translation_status END, $7::uuid, $6::boolean, $8::source_type, $9, $10, $11, $12, $13, $14, $15, $16::integer, $17, 'draft'::document_status, $18::uuid) RETURNING id, document_code",
+        "options": {
+          "queryReplacement": "={{ [$json.document_group_id, $json.document_code, $json.document_title, $json.document_type, $json.language_code, $json.is_ai_translated, $json.translation_of_document_id || null, $json.source_type, $json.version, $json.owner_department || null, $json.equipment_type || null, $json.equipment_code || null, $json.process_area || null, $json.file_name, $json.file_hash, $json.file_size_bytes, $json.mime_type, $json.user_id] }}"
+        }
+      },
+      "id": "8e1f6d10-4fbc-4d72-b4d2-a8ecc8adc92e",
+      "name": "PG: Create Document",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2128,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Trích xuất text + page-aware chunking\n// ========================================\nconst docRecord = $input.first().json;\nconst prevData = $('Process Dup Result').first().json;\n\nconst fileBuffer = Buffer.from(prevData.file_content, 'base64');\nconst text = fileBuffer.toString('utf-8');\n\n// Page-aware chunking\nconst CHUNK_SIZE = 1500;\nconst CHUNK_OVERLAP = 200;\n\nconst pageBreaks = text.split(/\\f|\\n---\\n|\\n={3,}\\n/);\nlet chunks = [];\nlet chunkIndex = 0;\n\nfor (let pageNum = 0; pageNum < pageBreaks.length; pageNum++) {\n  const pageText = pageBreaks[pageNum].trim();\n  if (!pageText) continue;\n\n  const sectionMatch = pageText.match(/^(\\d+\\.\\d*\\.?\\d*)\\s+(.+?)$/m);\n  const sectionCode = sectionMatch ? sectionMatch[1] : null;\n  const sectionTitle = sectionMatch ? sectionMatch[2].trim() : null;\n\n  if (pageText.length <= CHUNK_SIZE) {\n    chunks.push({\n      content: pageText,\n      chunk_index: chunkIndex++,\n      page_number: pageNum + 1,\n      section_code: sectionCode,\n      section_title: sectionTitle,\n      chunk_type: 'text',\n      content_tokens: Math.ceil(pageText.length / 3)\n    });\n  } else {\n    let start = 0;\n    while (start < pageText.length) {\n      let end = Math.min(start + CHUNK_SIZE, pageText.length);\n      if (end < pageText.length) {\n        const bp = Math.max(pageText.lastIndexOf('.', end), pageText.lastIndexOf('\\n', end));\n        if (bp > start + CHUNK_SIZE * 0.5) end = bp + 1;\n      }\n      const ct = pageText.substring(start, end).trim();\n      if (ct) {\n        chunks.push({\n          content: ct, chunk_index: chunkIndex++, page_number: pageNum + 1,\n          section_code: sectionCode, section_title: sectionTitle,\n          chunk_type: 'text', content_tokens: Math.ceil(ct.length / 3)\n        });\n      }\n      start = end - CHUNK_OVERLAP;\n    }\n  }\n}\n\n// Chuẩn bị danh sách text cho OpenAI embedding\nconst textsForEmbedding = chunks.map(c => c.content);\n\nreturn [{\n  json: {\n    document_id: docRecord.id,\n    document_code: prevData.document_code,\n    document_version: prevData.version,\n    language_code: prevData.language_code,\n    source_type: prevData.source_type,\n    file_hash: prevData.file_hash,\n    user_id: prevData.user_id,\n    primary_role: prevData.primary_role,\n    chunks: chunks,\n    texts_for_embedding: textsForEmbedding,\n    total_chunks: chunks.length,\n    total_pages: pageBreaks.filter(p => p.trim()).length\n  }\n}];"
+      },
+      "id": "7fd44d04-56c2-4d62-bcca-948f25b3272c",
+      "name": "Extract + Chunk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.texts_for_embedding }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "d5fab812-afc3-4a18-b43a-5e46ff40842f",
+      "name": "OpenAI: Embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2576,
+        480
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Ghép embedding vào chunks + tạo SQL INSERT\n// ========================================\nconst embedResult = $input.first().json;\nconst prevData = $('Extract + Chunk').first().json;\n\nconst embeddings = embedResult.data || [];\nconst chunks = prevData.chunks;\n\n// Tạo SQL INSERT cho tất cả chunks\nlet values = [];\nfor (let i = 0; i < chunks.length; i++) {\n  const c = chunks[i];\n  const emb = embeddings[i]?.embedding;\n  const embStr = emb ? \"'[\" + emb.join(',') + \"]'\" : 'NULL';\n  const content = c.content.replace(/'/g, \"''\"); // Escape single quotes\n  const secCode = c.section_code ? \"'\" + c.section_code.replace(/'/g, \"''\") + \"'\" : 'NULL';\n  const secTitle = c.section_title ? \"'\" + c.section_title.replace(/'/g, \"''\") + \"'\" : 'NULL';\n\n  values.push(`('${prevData.document_id}', '${content}', ${c.content_tokens}, ${c.chunk_index}, ${c.page_number}, NULL, ${secCode}, ${secTitle}, '${c.chunk_type}', '${prevData.document_code}', '${prevData.document_version}', '${prevData.language_code}'::language_code, '${prevData.source_type}'::source_type, '${prevData.file_hash}', ${embStr}::vector, 'indexed'::document_status)`);\n}\n\nconst insertSQL = `INSERT INTO document_chunks (document_id, content, content_tokens, chunk_index, page_number, page_range, section_code, section_title, chunk_type, document_code, document_version, language_code, source_type, file_hash, embedding, status) VALUES ${values.join(',\\n')};`;\n\n// SQL cập nhật status + audit log\nconst updateSQL = `UPDATE documents SET status = 'indexed', indexed_at = now(), chunk_count = ${chunks.length}, page_count = ${prevData.total_pages}, updated_at = now() WHERE id = '${prevData.document_id}'::uuid;`;\n\nconst auditSQL = `SELECT write_audit_log('${prevData.user_id}'::uuid, NULL, '${prevData.primary_role}', 'document_index'::audit_action, 'Upload + index: ${prevData.document_code}', NULL, NULL, '${prevData.document_id}'::uuid, '${prevData.document_code}', '${prevData.document_version}', '${prevData.language_code}'::language_code, '${prevData.file_hash}');`;\n\nreturn [{ json: {\n  sql: insertSQL + '\\n' + updateSQL + '\\n' + auditSQL,\n  document_id: prevData.document_id,\n  document_code: prevData.document_code,\n  language_code: prevData.language_code,\n  total_chunks: chunks.length,\n  total_pages: prevData.total_pages\n}}];"
+      },
+      "id": "1ccb3e7b-8565-40de-9dbf-79a8085dfd9e",
+      "name": "Build Insert SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "id": "955d3246-6a2a-46d8-bf47-ebadec10b656",
+      "name": "PG: Insert Chunks + Update + Audit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3024,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, document_id: $('Build Insert SQL').first().json.document_id, document_code: $('Build Insert SQL').first().json.document_code, status: 'indexed_pending_review', chunks_created: $('Build Insert SQL').first().json.total_chunks, total_pages: $('Build Insert SQL').first().json.total_pages, language_code: $('Build Insert SQL').first().json.language_code, message: 'Tài liệu đã được index thành công. Đang chờ QA review.' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "ea1fdd1f-a83b-45e6-9d72-0988356a49e7",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        3248,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "3ed1e57d-9d7c-4ef7-ad59-c49b897d0a56",
+      "name": "Auth 401"
+    }
+  ],
+  "connections": {
+    "Webhook Ingest": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Validate + Hash": {
+      "main": [
+        [
+          {
+            "node": "Input OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input OK?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Get User Roles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Get User Roles": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Permission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Upload Permission": {
+      "main": [
+        [
+          {
+            "node": "Permission OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permission OK?": {
+      "main": [
+        [
+          {
+            "node": "Permission Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Process Dup Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Dup Result": {
+      "main": [
+        [
+          {
+            "node": "Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Create Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Create Document": {
+      "main": [
+        [
+          {
+            "node": "Extract + Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract + Chunk": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Embedding": {
+      "main": [
+        [
+          {
+            "node": "Build Insert SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Insert SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Insert Chunks + Update + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Insert Chunks + Update + Audit": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + Validate + Hash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

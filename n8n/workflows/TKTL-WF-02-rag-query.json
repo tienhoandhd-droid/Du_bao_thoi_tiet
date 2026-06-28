@@ -1,0 +1,918 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "02",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "nZA5xAnubald5h5Q",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "767e4afb-aad9-4019-ac86-befd3a91cdc5",
+      "activeVersionId": "767e4afb-aad9-4019-ac86-befd3a91cdc5",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-24T05:40:06.912Z",
+      "updatedAt": "2026-06-27T11:25:40.882Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Get User Info",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Query Expansion",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Embed Query",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Hybrid Search",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Rerank",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Get System Prompt",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Chat Answer",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Save Query + Audit",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "reconstructed-from-live-node-auth-type",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "nZA5xAnubald5h5Q",
+  "name": "TKTL WF-02 RAG Query",
+  "active": false,
+  "versionId": "767e4afb-aad9-4019-ac86-befd3a91cdc5",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag-query",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "76333241-2246-43e3-84ad-cbefc6b1c5d8",
+      "name": "Webhook RAG",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        144
+      ],
+      "webhookId": "rag-query"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Parse request + decode JWT\n// ========================================\nconst headers = $('Webhook RAG').first().json.headers || {};\nconst body = $('Webhook RAG').first().json.body || {};\n\nconst authHeader = headers.authorization || headers.Authorization || '';\nconst token = authHeader.replace('Bearer ', '');\n\nif (!token) {\n  return [{ json: { error: true, message: 'Thiếu token xác thực', status: 401 } }];\n}\n\nlet userId = null;\ntry {\n  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());\n  userId = payload.sub;\n  if (!userId) throw new Error('Không có user ID');\n} catch (e) {\n  return [{ json: { error: true, message: 'Token không hợp lệ', status: 401 } }];\n}\n\nif (!body.query || body.query.trim().length < 3) {\n  return [{ json: { error: true, message: 'Câu hỏi quá ngắn (tối thiểu 3 ký tự)', status: 400 } }];\n}\n\nreturn [{\n  json: {\n    error: false,\n    user_id: userId,\n    query: body.query.trim(),\n    session_id: body.session_id || null,\n    response_language: body.response_language || 'vi',\n    conversation_history: body.conversation_history || [],\n    filters: {\n      language_preference: body.filters?.language_preference || 'any',\n      document_type: body.filters?.document_type || null,\n      source_type: body.filters?.source_type || null,\n      source_category: body.filters?.source_category || null,\n      max_trust_level: Number.isInteger(body.filters?.max_trust_level) ? body.filters.max_trust_level : null,\n      equipment_type: body.filters?.equipment_type || null,\n      equipment_code: body.filters?.equipment_code || null\n    }\n  }\n}];"
+      },
+      "id": "9c1af5c3-80bf-4b78-b5b5-343a3e892280",
+      "name": "Parse + JWT Decode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ceee4614-3b1a-4022-bd8c-578753d8fd84",
+      "name": "Input OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        544,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "d776a10f-6ff5-420e-94cd-933c1f25a06f",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name, up.email, up.full_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id JOIN user_profiles up ON ur.user_id = up.id WHERE ur.user_id = $1::uuid AND ur.is_active = true",
+        "options": {
+          "queryReplacement": "={{ [$('Parse + JWT Decode').first().json.user_id] }}"
+        }
+      },
+      "id": "7060f013-18b4-4b1c-b2e0-53eddd159315",
+      "name": "PG: Get User Info",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        768,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Kiểm tra quyền AI query\nconst results = $input.all();\nconst roles = results.map(item => item.json.role_name);\nconst userEmail = results[0]?.json?.email || 'unknown';\nconst prevData = $('Parse + JWT Decode').first().json;\n\nconst canQuery = roles.some(r => ['admin', 'qa_manager', 'validation', 'engineering'].includes(r));\n\nif (roles.length === 0 || !canQuery) {\n  return [{ json: { error: true, message: 'Bạn không có quyền sử dụng AI Search', status: 403 } }];\n}\n\nreturn [{ json: { ...prevData, user_email: userEmail, user_roles: roles, primary_role: roles[0] } }];"
+      },
+      "id": "91e6a186-faae-48be-8480-3295711cd3ca",
+      "name": "Check AI Permission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "190b2da7-e009-46fd-84ea-b130e0cfc867",
+      "name": "Permission OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "b9e4f73a-712e-43b3-9f29-87564cb262d7",
+      "name": "Permission Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'gpt-4o-mini',temperature:0,max_tokens:300,response_format:{type:'json_object'},messages:[{role:'system',content:'Bạn là bộ mở rộng truy vấn (query expansion) cho hệ thống tra cứu tài liệu GMP/validation song ngữ Việt-Anh. Tạo embedding_query (câu truy vấn ngữ nghĩa giàu thông tin để embedding) và fts_terms (các từ khóa quan trọng gồm cả tiếng Việt và thuật ngữ tiếng Anh tương đương, phân tách bằng dấu cách). CHỈ trả về JSON object thuần, không markdown, không giải thích.'},{role:'user',content:'Câu hỏi: ' + $('Check AI Permission').first().json.query + '\\n\\nTrả JSON đúng cấu trúc: {\"embedding_query\":\"...\",\"fts_terms\":\"...\"}\\nQuy tắc: giữ đúng ý định gốc, không bịa nội dung; fts_terms tập trung từ khóa GMP cốt lõi (vd thẩm định/validation, hiệu chuẩn/calibration, IQ/OQ/PQ, độ sạch/cleanliness, HEPA, Grade A...), tối đa 12 từ.'}]}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9a46dfac-c04a-4ff2-abe6-016ddf7bc02b",
+      "name": "OpenAI: Query Expansion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse kết quả Query Expansion — FAIL-SAFE: lỗi/parse hỏng -> dùng query gốc\nconst ai = $input.first().json;\nconst prev = $('Check AI Permission').first().json;\nconst original = prev.query;\n\nlet embeddingQuery = original;\nlet ftsTerms = original;\nlet expansionUsed = false;\n\ntry {\n  const raw = ai.choices?.[0]?.message?.content || '';\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  if (parsed.embedding_query && String(parsed.embedding_query).trim().length >= 3) {\n    embeddingQuery = String(parsed.embedding_query).trim();\n    expansionUsed = true;\n  }\n  if (parsed.fts_terms && String(parsed.fts_terms).trim().length >= 2) {\n    ftsTerms = String(parsed.fts_terms).trim();\n  }\n} catch (e) {\n  // giữ nguyên query gốc\n}\n\n// Neo ý định: embedding gồm cả câu hỏi gốc + phần mở rộng (tránh trôi nghĩa)\nconst embedInput = expansionUsed ? (original + ' ' + embeddingQuery) : original;\n\nreturn [{ json: {\n  ...prev,\n  original_query: original,\n  embedding_query: embedInput,\n  fts_terms: ftsTerms,\n  expansion_used: expansionUsed\n}}];"
+      },
+      "id": "2d30bf59-a2e1-49ff-bc55-b1c966f6b0d1",
+      "name": "Parse Expansion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.embedding_query }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ff93417b-0549-41c0-a8fd-726849b30d26",
+      "name": "OpenAI: Embed Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1888,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Tạo SQL hybrid_search_v3 (governance + full-text + trust + quality)\n// Over-retrieve (RERANK_POOL) để reranker chọn lọc lại.\n// ========================================\nconst embedResult = $input.first().json;\nconst prevData = $('Parse Expansion').first().json;\n\nconst embedding = embedResult.data?.[0]?.embedding;\nif (!embedding) {\n  return [{ json: { error: true, message: 'Không tạo được embedding', status: 500 } }];\n}\nconst embStr = '[' + embedding.join(',') + ']';\nconst f = prevData.filters || {};\n\n// --- Tunables ---\nconst RERANK_POOL    = 24;   // số ứng viên lấy về để rerank\nconst MATCH_THRESHOLD = 0.4; // ngưỡng vector (rộng để recall cao, rerank lo precision)\nconst MIN_QUALITY     = 0.3; // loại chunk nhiễu\n\nconst esc = (s) => String(s).replace(/'/g, \"''\");\nconst ftsText = prevData.fts_terms || prevData.original_query || '';\n\n// Thứ tự tham số v3:\n// (embedding, query_text, match_threshold, match_count, user_id,\n//  language_preference, source_category, document_type, max_trust_level,\n//  equipment_type, min_quality)\nconst sql = `SELECT * FROM hybrid_search_v3(\n  '${embStr}'::vector(1536),\n  '${esc(ftsText)}',\n  ${MATCH_THRESHOLD},\n  ${RERANK_POOL},\n  '${prevData.user_id}'::uuid,\n  '${esc(f.language_preference || 'any')}',\n  '${esc(f.source_category || 'any')}',\n  ${f.document_type ? \"'\" + esc(f.document_type) + \"'\" : 'NULL'},\n  ${Number.isInteger(f.max_trust_level) ? f.max_trust_level : 5},\n  ${f.equipment_type ? \"'\" + esc(f.equipment_type) + \"'\" : 'NULL'},\n  ${MIN_QUALITY}\n);`;\n\nreturn [{ json: { ...prevData, search_sql: sql, rerank_pool: RERANK_POOL } }];"
+      },
+      "id": "39702c1b-e410-480b-bc0e-999441e8ab53",
+      "name": "Build Search SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.search_sql }}",
+        "options": {}
+      },
+      "id": "dd69c5e0-5517-4007-98cb-f4fc2c83c3f8",
+      "name": "PG: Hybrid Search",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2336,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gom kết quả search (N item -> 1) + lọc mềm source_type + dựng prompt rerank\nconst rows = $input.all().map(i => i.json).filter(r => r && r.chunk_id);\nconst prevData = $('Build Search SQL').first().json;\nconst f = prevData.filters || {};\n\n// v3 KHÔNG có tham số source_type -> lọc mềm tại đây để giữ tương thích filter cũ\nlet candidates = rows;\nif (f.source_type) {\n  const filtered = rows.filter(r => r.source_type === f.source_type);\n  if (filtered.length > 0) candidates = filtered; // chỉ áp dụng nếu không làm rỗng\n}\n\n// Gắn chỉ số ổn định cho reranker tham chiếu\ncandidates = candidates.map((c, i) => ({ ...c, _idx: i }));\n\nconst FINAL_TOP_N = 8;\nconst hasCandidates = candidates.length >= 2; // 0/1 thì khỏi rerank\n\n// Chỉ gửi snippet ngắn để tiết kiệm token\nconst list = candidates.map(c => {\n  const snip = (c.content || '').replace(/\\s+/g, ' ').substring(0, 320);\n  return `[${c._idx}] (${c.document_code} v${c.document_version} | ${c.source_type} | ${c.language_code} | ${c.lifecycle_state}) ${snip}`;\n}).join('\\n');\n\nconst rerankMessages = [\n  { role: 'system', content: 'Bạn là bộ xếp hạng lại (reranker) cho tra cứu tài liệu GMP/validation. Cho một câu hỏi và danh sách đoạn văn (mỗi đoạn có chỉ số [i]), hãy chọn các đoạn LIÊN QUAN NHẤT và xếp theo độ liên quan giảm dần. Ưu tiên đoạn trả lời trực tiếp câu hỏi, đúng thiết bị/ngữ cảnh, có tiêu chí/số liệu cụ thể. CHỈ trả về JSON object thuần.' },\n  { role: 'user', content: 'CÂU HỎI:\\n' + prevData.original_query + '\\n\\nCÁC ĐOẠN:\\n' + list + '\\n\\nTrả JSON đúng cấu trúc: {\"ranking\":[<các chỉ số theo thứ tự liên quan giảm dần, tối đa ' + FINAL_TOP_N + ' số>]}. Chỉ gồm chỉ số có thật trong danh sách; loại đoạn không liên quan.' }\n];\n\nreturn [{ json: {\n  ...prevData,\n  candidates,\n  has_candidates: hasCandidates,\n  final_top_n: FINAL_TOP_N,\n  rerank_messages: rerankMessages\n}}];"
+      },
+      "id": "a19c09a1-1383-414c-ab7b-9de5dd8eedc6",
+      "name": "Prepare Rerank",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.has_candidates }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "98980cfe-b067-438c-9c50-5837783e67e7",
+      "name": "Has Candidates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'gpt-4o-mini',temperature:0,max_tokens:200,response_format:{type:'json_object'},messages:$json.rerank_messages}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9cc05bf6-73b8-478f-9b64-38afade0de45",
+      "name": "OpenAI: Rerank",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3008,
+        320
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Áp dụng thứ tự rerank — FAIL-SAFE: lỗi -> giữ thứ tự combined_score của v3\nconst ai = $input.first().json;\nconst prevData = $('Prepare Rerank').first().json;\nconst candidates = prevData.candidates || [];\nconst topN = prevData.final_top_n || 8;\nconst MIN_KEEP = 3;\n\nlet order = null;\ntry {\n  const raw = ai.choices?.[0]?.message?.content || '';\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  if (Array.isArray(parsed.ranking)) {\n    order = parsed.ranking\n      .map(n => parseInt(n, 10))\n      .filter(n => Number.isInteger(n) && n >= 0 && n < candidates.length);\n  }\n} catch (e) { order = null; }\n\nlet reranked;\nlet rerankApplied = false;\nif (order && order.length > 0) {\n  const seen = new Set();\n  reranked = [];\n  for (const idx of order) {\n    if (!seen.has(idx)) { seen.add(idx); reranked.push(candidates[idx]); }\n  }\n  // Nếu model cắt quá tay -> bù thêm theo combined_score gốc để đủ tối thiểu MIN_KEEP\n  if (reranked.length < MIN_KEEP) {\n    for (const c of candidates) {\n      if (!seen.has(c._idx)) { seen.add(c._idx); reranked.push(c); if (reranked.length >= MIN_KEEP) break; }\n    }\n  }\n  rerankApplied = true;\n} else {\n  reranked = candidates.slice(); // fallback: thứ tự v3\n}\n\nconst finalChunks = reranked.slice(0, topN);\n\nreturn [{ json: { ...prevData, chunks: finalChunks, rerank_applied: rerankApplied } }];"
+      },
+      "id": "f3d74d5d-2020-46bd-8f49-d675f9938bcb",
+      "name": "Apply Rerank",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Xử lý kết quả (đã rerank) + cảnh báo + build context (v3 governance-aware)\n// Nhận từ 2 nhánh: Apply Rerank (có .chunks) hoặc Prepare Rerank (0/1 -> .candidates)\n// ========================================\nconst inItem = $input.first().json;\nconst prevData = $('Build Search SQL').first().json; // carry ổn định ở cả 2 nhánh\nconst chunks = inItem.chunks || inItem.candidates || [];\n\nif (!chunks || chunks.length === 0) {\n  return [{ json: {\n    ...prevData,\n    chunks: [],\n    has_sources: false,\n    confidence: 'BLOCKED',\n    conflict_warning: '',\n    language_warning: '',\n    governance_note: '',\n    rerank_applied: inItem.rerank_applied || false,\n    context_text: 'KHÔNG CÓ CONTEXT CHUNKS. Trả lời: \"Không tìm thấy trong nguồn đã được duyệt cho AI.\"'\n  }}];\n}\n\n// Conflict: SOP nội bộ vs guideline công khai\nlet conflictWarning = '';\nconst hasInternal = chunks.some(c => c.source_type === 'internal_sop');\nconst hasGuideline = chunks.some(c => c.source_type === 'guideline');\nif (hasInternal && hasGuideline) {\n  conflictWarning = 'Có cả SOP nội bộ và guideline công khai. Với hồ sơ site, ưu tiên SOP nội bộ đang hiệu lực.';\n}\n\n// Ngôn ngữ (v3 đã loại bản dịch AI nháp; cờ is_ai_translated có thể vắng -> guard)\nlet languageWarning = '';\nconst hasVi = chunks.some(c => c.language_code === 'vi');\nconst hasEn = chunks.some(c => c.language_code === 'en');\nconst hasAiTrans = chunks.some(c => c.is_ai_translated === true);\nif (prevData.response_language === 'vi' && !hasVi && hasEn) {\n  languageWarning = 'Chỉ tìm thấy nguồn tiếng Anh. Câu trả lời là diễn giải tiếng Việt từ nguồn tiếng Anh.';\n}\nif (hasAiTrans) {\n  languageWarning += (languageWarning ? ' ' : '') + '⚠ Một số nguồn là bản dịch AI.';\n}\n\n// Governance: tài liệu quá hạn rà soát nhưng VẪN còn hiệu lực\nlet governanceNote = '';\nconst dueReview = [...new Set(chunks.filter(c => c.lifecycle_state === 'due_review').map(c => c.document_code))];\nif (dueReview.length > 0) {\n  governanceNote = 'Một số tài liệu đã quá hạn rà soát định kỳ (vẫn còn hiệu lực): ' + dueReview.join(', ') + '.';\n}\n\n// Confidence theo combined_score sau rerank\nconst avgScore = chunks.reduce((s, c) => s + (parseFloat(c.combined_score) || 0), 0) / chunks.length;\nlet confidence = 'LOW';\nif (avgScore >= 0.7 && chunks.length >= 3) confidence = 'HIGH';\nelse if (avgScore >= 0.55 && chunks.length >= 2) confidence = 'MEDIUM';\n\n// Context\nlet contextText = '=== CONTEXT CHUNKS (đã lọc governance + rerank) ===\\n\\n';\nchunks.forEach((c, i) => {\n  contextText += `--- CHUNK ${i + 1} ---\\n`;\n  contextText += `Tài liệu: ${c.document_code} v${c.document_version} | Hiệu lực: ${c.lifecycle_state || 'effective'}\\n`;\n  contextText += `Ngôn ngữ: ${c.language_code} | Nguồn: ${c.source_type} (${c.source_category || 'internal'}) | Trust: ${c.trust_level}\\n`;\n  contextText += `Trang: ${c.page_number || 'N/A'} | Mục: ${c.section_code || 'N/A'} - ${c.section_title || 'N/A'}\\n`;\n  contextText += `Score: ${parseFloat(c.combined_score || 0).toFixed(3)} (sim ${parseFloat(c.similarity_score || 0).toFixed(2)} / fts ${parseFloat(c.fts_score || 0).toFixed(2)})\\n`;\n  contextText += `Nội dung:\\n${c.content}\\n\\n`;\n});\n\nreturn [{ json: {\n  ...prevData,\n  chunks,\n  has_sources: true,\n  confidence,\n  conflict_warning: conflictWarning,\n  language_warning: languageWarning,\n  governance_note: governanceNote,\n  rerank_applied: inItem.rerank_applied || false,\n  context_text: contextText\n}}];"
+      },
+      "id": "b1198242-635d-4e58-887e-b2fcccf5d174",
+      "name": "Process Search + Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT prompt_text, version FROM prompt_versions WHERE prompt_name = 'rag_query' AND is_active = true LIMIT 1;",
+        "options": {}
+      },
+      "id": "a52333e1-7ce2-462b-b919-a0a1aed880a0",
+      "name": "PG: Get System Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3680,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Xây messages cho OpenAI Chat — prompt_version đọc động từ DB\n// ========================================\nconst promptResult = $input.first().json;\nconst prevData = $('Process Search + Build Context').first().json;\n\nconst systemPrompt = promptResult.prompt_text || 'Bạn là GMP Validation AI Assistant. Trả lời bằng tiếng Việt với citation.';\nconst promptVersion = promptResult.version || 'unknown';\n\nlet warnings = '';\nif (prevData.conflict_warning) warnings += '\\nCẢNH BÁO CONFLICT: ' + prevData.conflict_warning;\nif (prevData.language_warning) warnings += '\\nCẢNH BÁO NGÔN NGỮ: ' + prevData.language_warning;\nif (prevData.governance_note)  warnings += '\\nGHI CHÚ GOVERNANCE: ' + prevData.governance_note;\n\nconst messages = [{ role: 'system', content: systemPrompt }];\n\nif (prevData.conversation_history && prevData.conversation_history.length > 0) {\n  messages.push(...prevData.conversation_history.slice(-4));\n}\n\nmessages.push({\n  role: 'user',\n  content: prevData.context_text + warnings +\n    '\\n\\n=== CÂU HỎI ===\\n' + prevData.query +\n    '\\n\\n=== YÊU CẦU ===\\nTrả lời bằng tiếng Việt, trích dẫn mã tài liệu + phiên bản (vd: SOP-XXX v01) cho mỗi ý chính. CHỈ dùng thông tin trong CONTEXT, không bịa. Mức tin cậy: ' + prevData.confidence + '.'\n});\n\nreturn [{ json: { ...prevData, openai_messages: messages, prompt_version: promptVersion } }];"
+      },
+      "id": "ef9614f7-498f-4329-9c8d-0ed3058904f6",
+      "name": "Build AI Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', messages: $json.openai_messages, temperature: 0.1, max_tokens: 2000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "447115da-b71b-43b9-95a2-c4f0e8f2f1e7",
+      "name": "OpenAI: Chat Answer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4128,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Xử lý AI response + tạo SQL save (audit append-only + citation grounding) + sources cho FE\n// ========================================\nconst aiResult = $input.first().json;\nconst prevData = $('Build AI Messages').first().json;\n\nconst answer = aiResult.choices?.[0]?.message?.content || 'Không thể tạo câu trả lời.';\nconst tokensUsed = aiResult.usage?.total_tokens || 0;\n\nconst esc = s => String(s ?? '').replace(/'/g, \"''\");\nconst escapedQuery  = esc(prevData.query);\nconst escapedAnswer = esc(answer);\nconst chunks = prevData.chunks || [];\n\n// --- Source codes cho audit ---\nconst sourceCodes = chunks.map(c => c.document_code).filter(Boolean);\n\n// --- Build citation VALUES cho ai_query_sources ---\nconst chunkValues = chunks.map((c, i) => {\n  const chunkId  = c.chunk_id      ? `'${esc(c.chunk_id)}'::uuid`           : 'NULL';\n  const docId    = c.document_id   ? `'${esc(c.document_id)}'::uuid`        : 'NULL';\n  const docCode  = c.document_code  ? `'${esc(c.document_code)}'`           : 'NULL';\n  const docVer   = c.document_version ? `'${esc(c.document_version)}'`      : 'NULL';\n  const langCode = c.language_code  ? `'${c.language_code}'::language_code` : 'NULL';\n  const pageNum  = c.page_number    || 'NULL';\n  const secCode  = c.section_code   ? `'${esc(c.section_code)}'`            : 'NULL';\n  const secTitle = c.section_title  ? `'${esc(c.section_title)}'`           : 'NULL';\n  const srcType  = c.source_type    ? `'${c.source_type}'::source_type`     : 'NULL';\n  const relScore = parseFloat(c.combined_score || 0);\n  const grounded = c.chunk_id ? 'true' : 'false';\n  const rank     = i + 1;\n  const snip     = esc((c.content || '').substring(0, 150));\n  return `((SELECT id FROM new_query), ${chunkId}, ${docId}, ${docCode}, ${docVer}, ${langCode}, ${pageNum}, ${secCode}, ${secTitle}, ${srcType}, ${relScore}, ${rank}, ${grounded}, ${rank}, '${snip}')`;\n}).join(',\\n    ');\n\n// --- CTE sources INSERT (chỉ khi có chunks) ---\nconst sourcesCTE = chunks.length > 0 ? `,\nsources_insert AS (\n  INSERT INTO ai_query_sources\n    (query_id, chunk_id, document_id, document_code, document_version,\n     language_code, page_number, section_code, section_title, source_type,\n     relevance_score, source_priority, grounded, citation_rank, snippet)\n  VALUES\n    ${chunkValues}\n  RETURNING id\n)` : '';\n\n// --- Final SELECT: đảm bảo mọi CTE được materialized ---\nconst finalSelect = chunks.length > 0\n  ? 'SELECT nq.id, au.log_id, (SELECT count(*)::int FROM sources_insert) AS sources_saved FROM new_query nq, audit_cte au'\n  : 'SELECT nq.id, au.log_id FROM new_query nq, audit_cte au';\n\nconst saveSQL = `WITH new_query AS (\n  INSERT INTO ai_queries\n    (user_id, session_id, query_text, query_language, response_language,\n     answer_text, confidence, model_used, prompt_version, tokens_used,\n     has_conflict_warning, has_language_warning, filters)\n  VALUES (\n    '${prevData.user_id}'::uuid,\n    ${prevData.session_id ? \"'\" + esc(prevData.session_id) + \"'\" : 'NULL'},\n    '${escapedQuery}',\n    '${prevData.response_language}'::language_code,\n    '${prevData.response_language}'::language_code,\n    '${escapedAnswer}',\n    '${prevData.confidence}'::confidence_level,\n    'gpt-4o-mini',\n    '${esc(prevData.prompt_version)}',\n    ${tokensUsed},\n    ${!!prevData.conflict_warning},\n    ${!!prevData.language_warning},\n    '${JSON.stringify(prevData.filters).replace(/'/g, \"''\")}'::jsonb\n  )\n  RETURNING id\n)${sourcesCTE},\naudit_cte AS (\n  SELECT write_audit_log(\n    '${prevData.user_id}'::uuid,\n    '${esc(prevData.user_email)}',\n    '${esc(prevData.primary_role)}',\n    'ai_query'::audit_action,\n    '${escapedQuery.substring(0, 200)}',\n    NULL,\n    ARRAY[${sourceCodes.map(s => \"'\" + esc(String(s)) + \"'\").join(',')}]::text[],\n    NULL, NULL, NULL, NULL, NULL,\n    'gpt-4o-mini',\n    '${esc(prevData.prompt_version)}',\n    NULL, NULL,\n    ${prevData.session_id ? \"'\" + esc(prevData.session_id) + \"'\" : 'NULL'}\n  ) AS log_id\n)\n${finalSelect};`;\n\n// --- Sources cho frontend (bổ sung grounded + chunk_id) ---\nconst sources = chunks.map(c => ({\n  document_code:    c.document_code,\n  document_title:   c.document_title,\n  version:          c.document_version,\n  language_code:    c.language_code,\n  source_type:      c.source_type,\n  source_category:  c.source_category   || null,\n  trust_level:      (c.trust_level !== undefined && c.trust_level !== null) ? c.trust_level : null,\n  lifecycle_state:  c.lifecycle_state   || 'effective',\n  effective_date:   c.effective_date    || null,\n  next_review_date: c.next_review_date  || null,\n  page_number:      c.page_number,\n  section_code:     c.section_code,\n  section_title:    c.section_title,\n  translation_status: c.translation_status || 'original',\n  is_ai_translated: !!c.is_ai_translated,\n  relevance_score:  parseFloat(c.combined_score || 0),\n  similarity_score: parseFloat(c.similarity_score || 0),\n  fts_score:        parseFloat(c.fts_score || 0),\n  chunk_id:         c.chunk_id || null,\n  grounded:         !!c.chunk_id,\n  snippet:          (c.content || '').substring(0, 150) + '...'\n}));\n\nreturn [{ json: {\n  save_sql: saveSQL,\n  response: {\n    success: true,\n    answer:           answer,\n    answer_language:  prevData.response_language || 'vi',\n    sources:          sources,\n    confidence:       prevData.confidence,\n    conflict_warning: prevData.conflict_warning  || '',\n    language_warning: prevData.language_warning  || '',\n    governance_note:  prevData.governance_note   || '',\n    retrieval: {\n      rerank_applied: !!prevData.rerank_applied,\n      expansion_used: !!prevData.expansion_used\n    },\n    model_used:     'gpt-4o-mini',\n    prompt_version: prevData.prompt_version,\n    disclaimer:     'Nội dung do AI tạo, cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức.'\n  }\n}}];"
+      },
+      "id": "df312811-d011-4e49-93c1-eb7d463a0171",
+      "name": "Format Response + Build Save SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4352,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.save_sql }}",
+        "options": {}
+      },
+      "id": "2cb4268c-cd59-4f3f-9b83-a93b53c8cab6",
+      "name": "PG: Save Query + Audit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4576,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Format Response + Build Save SQL').first().json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "44be1345-488e-4cd9-bb75-0d443aef328f",
+      "name": "RAG Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        4800,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        144
+      ],
+      "id": "b2a8cf5d-3a3c-4c26-9ad9-0e03aaaa260e",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        0
+      ],
+      "id": "5fb803ef-aaa8-4c98-b4cf-14bf86b9a943",
+      "name": "Auth 401"
+    }
+  ],
+  "connections": {
+    "Webhook RAG": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + JWT Decode": {
+      "main": [
+        [
+          {
+            "node": "Input OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input OK?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Get User Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Get User Info": {
+      "main": [
+        [
+          {
+            "node": "Check AI Permission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Permission": {
+      "main": [
+        [
+          {
+            "node": "Permission OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permission OK?": {
+      "main": [
+        [
+          {
+            "node": "Permission Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI: Query Expansion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Query Expansion": {
+      "main": [
+        [
+          {
+            "node": "Parse Expansion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Expansion": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Embed Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Embed Query": {
+      "main": [
+        [
+          {
+            "node": "Build Search SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Search SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Hybrid Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Hybrid Search": {
+      "main": [
+        [
+          {
+            "node": "Prepare Rerank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Rerank": {
+      "main": [
+        [
+          {
+            "node": "Has Candidates?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Candidates?": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Rerank",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Search + Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Rerank": {
+      "main": [
+        [
+          {
+            "node": "Apply Rerank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Rerank": {
+      "main": [
+        [
+          {
+            "node": "Process Search + Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Search + Build Context": {
+      "main": [
+        [
+          {
+            "node": "PG: Get System Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Get System Prompt": {
+      "main": [
+        [
+          {
+            "node": "Build AI Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Messages": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Chat Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Chat Answer": {
+      "main": [
+        [
+          {
+            "node": "Format Response + Build Save SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response + Build Save SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Save Query + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Save Query + Audit": {
+      "main": [
+        [
+          {
+            "node": "RAG Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + JWT Decode",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

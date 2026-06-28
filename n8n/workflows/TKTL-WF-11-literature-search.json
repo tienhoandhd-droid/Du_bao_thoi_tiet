@@ -1,0 +1,792 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "11",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "yrLN2Y5tEC8jJwGR",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "bad508fe-756e-42e5-b6e5-19786d97e6f8",
+      "activeVersionId": "bad508fe-756e-42e5-b6e5-19786d97e6f8",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-25T18:19:42.123Z",
+      "updatedAt": "2026-06-27T11:26:02.559Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Check Role",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Embedding",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Insert Document",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Insert Chunks + Audit",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "yrLN2Y5tEC8jJwGR",
+  "name": "TKTL WF-11 Literature Search",
+  "active": false,
+  "versionId": "bad508fe-756e-42e5-b6e5-19786d97e6f8",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "literature-search",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f3f44ce9-942e-4ffd-8078-4ee2c15eaa43",
+      "name": "Webhook Literature Search",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -16
+      ],
+      "webhookId": "literature-search"
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        -16
+      ],
+      "id": "6012732c-0433-4e2a-b928-aea842b0f2a2",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        288
+      ],
+      "id": "d9793e78-4c24-42fb-8d66-14352247001d",
+      "name": "Auth 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse + Auth — Việc VERIFY token đã do node \"🔐 Verify JWT\" (Cách B, HTTP /auth/v1/user) thực hiện.\n// Node này CHỈ lấy sub (cho truy vấn DB) + đọc & validate body theo mode. Không phải cổng xác thực.\nconst headers = $('Webhook Literature Search').first().json.headers || {};\nconst body = $('Webhook Literature Search').first().json.body || {};\nconst token = (headers.authorization || headers.Authorization || '').replace('Bearer ', '');\nif (!token) return [{ json: { error: true, message: 'Thiếu token', status: 401 } }];\nlet userId;\ntry { userId = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString()).sub; if (!userId) throw 0; }\ncatch (e) { return [{ json: { error: true, message: 'Token không hợp lệ', status: 401 } }]; }\n\nconst mode = (body.mode || 'search').toLowerCase();\n// Europe PMC bao trùm MEDLINE/PubMed + có abstract + open access → engine mặc định.\nconst database = (body.database || 'europepmc').toLowerCase();\nif (mode !== 'search' && mode !== 'ingest') {\n  return [{ json: { error: true, message: \"mode phải là 'search' hoặc 'ingest'\", status: 400 } }];\n}\n\nif (mode === 'search') {\n  const q = (body.query || body.q || '').toString().trim();\n  if (!q) return [{ json: { error: true, message: 'Thiếu query tìm kiếm (body.query)', status: 400 } }];\n  let pageSize = parseInt(body.page_size || body.limit || 10, 10);\n  if (isNaN(pageSize) || pageSize < 1) pageSize = 10;\n  if (pageSize > 25) pageSize = 25;\n  const openAccessOnly = body.open_access_only === true;\n  const sort = (body.sort || 'relevance').toLowerCase(); // 'relevance' | 'date'\n  return [{ json: {\n    error: false, mode, database, user_id: userId,\n    query: q, page_size: pageSize, open_access_only: openAccessOnly, sort\n  } }];\n}\n\n// mode === 'ingest' (nạp 1 bài đã chọn vào kho — chỉ QA/Admin, sẽ kiểm role ở bước sau)\nconst pmid = (body.pmid || '').toString().trim();\nconst doi = (body.doi || '').toString().trim();\nif (!pmid && !doi) return [{ json: { error: true, message: 'Ingest cần body.pmid hoặc body.doi', status: 400 } }];\nconst docCode = body.document_code\n  || (pmid ? ('PMID-' + pmid) : ('DOI-' + doi.replace(/[^A-Za-z0-9._-]/g, '_')));\nlet trust = parseInt(body.trust_level, 10); if (isNaN(trust)) trust = 2; // peer-reviewed literature = 2\nconst lang = ['vi', 'en', 'vi-en', 'other'].includes(body.language_code) ? body.language_code : 'en';\nreturn [{ json: {\n  error: false, mode, database, user_id: userId,\n  pmid, doi, document_code: docCode, language_code: lang, trust_level: trust\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        -96
+      ],
+      "id": "c60b6a8e-a685-4bae-a338-74fb8ea44967",
+      "name": "Parse + Auth"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "0ecfff01-ec76-466f-8ef0-0d87a1307170",
+      "name": "Input OK?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": "={{ $json.status||400 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2832,
+        96
+      ],
+      "id": "38ba8aaf-34f2-435d-b547-e34a31b26463",
+      "name": "Error Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cmode",
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "ingest",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -160
+      ],
+      "id": "05dcaa7a-6215-4d15-85e5-8a4dba8329c4",
+      "name": "Is Ingest?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build URL tìm kiếm Europe PMC (REST công khai, không cần key).\nconst p = $json;\nconst base = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search';\nlet q = p.query;\nif (p.open_access_only) q = '(' + q + ') AND OPEN_ACCESS:Y';\nconst sortParam = p.sort === 'date' ? '&sort=' + encodeURIComponent('P_PDATE_D desc') : '';\nconst url = base + '?query=' + encodeURIComponent(q)\n  + '&format=json&resultType=core&pageSize=' + p.page_size + sortParam;\nreturn [{ json: { ...p, search_url: url } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -336
+      ],
+      "id": "2172019a-6ce5-4f04-9160-18f78a3a2a75",
+      "name": "Build Search URL"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.search_url }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        -336
+      ],
+      "id": "37b197ce-83b4-47bd-a369-f6b3238bb9aa",
+      "name": "Europe PMC Search"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chuẩn hoá kết quả Europe PMC → danh sách có trích dẫn (title, authors, journal, year, DOI/PMID, abstract, url)\nconst p = $('Build Search URL').first().json;\nconst resp = $input.first().json;\nconst list = (resp.resultList && resp.resultList.result) || [];\n\nfunction articleUrl(r) {\n  if (r.doi) return 'https://doi.org/' + r.doi;\n  if (r.pmid) return 'https://pubmed.ncbi.nlm.nih.gov/' + r.pmid + '/';\n  if (r.pmcid) return 'https://www.ncbi.nlm.nih.gov/pmc/articles/' + r.pmcid + '/';\n  if (r.id && r.source) return 'https://europepmc.org/article/' + r.source + '/' + r.id;\n  return null;\n}\nfunction clean(s) { return (s || '').toString().replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim(); }\n\nconst results = list.map((r, i) => {\n  const authors = clean(r.authorString);\n  const journal = clean(r.journalTitle || (r.journalInfo && r.journalInfo.journal && r.journalInfo.journal.title));\n  const title = clean(r.title);\n  const ab = clean(r.abstractText);\n  let cite = '[' + (i + 1) + '] ' + (authors ? authors + '. ' : '') + (title ? title + '. ' : '')\n    + (journal ? journal + '. ' : '') + (r.pubYear ? '(' + r.pubYear + ') ' : '')\n    + (r.doi ? 'doi:' + r.doi + ' ' : '') + (r.pmid ? 'PMID:' + r.pmid : '');\n  return {\n    rank: i + 1,\n    title,\n    authors,\n    journal,\n    year: r.pubYear || null,\n    pmid: r.pmid || null,\n    pmcid: r.pmcid || null,\n    doi: r.doi || null,\n    source: r.source || null,\n    is_open_access: r.isOpenAccess === 'Y' || r.inEPMC === 'Y',\n    citation: cite.replace(/\\s+/g, ' ').trim(),\n    abstract: ab ? (ab.length > 1200 ? ab.slice(0, 1200) + '…' : ab) : '',\n    url: articleUrl(r)\n  };\n});\n\nreturn [{ json: {\n  success: true,\n  mode: 'search',\n  database: p.database,\n  query: p.query,\n  count: results.length,\n  hit_count_total: resp.hitCount || results.length,\n  results\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        -336
+      ],
+      "id": "2ea52a93-fedb-485b-bb0f-60188d65d68f",
+      "name": "Normalize Results"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        -336
+      ],
+      "id": "843d065c-20d8-4cf9-8b3d-7568fa177740",
+      "name": "Search Response"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.id WHERE ur.user_id=$1::uuid AND ur.is_active=true",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1488,
+        -64
+      ],
+      "id": "e1f8b5c2-4279-4964-9fb4-6386b1223948",
+      "name": "PG: Check Role",
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const roles=$input.all().map(i=>i.json.role_name);\nconst prev=$('Parse + Auth').first().json;\nif(!roles.some(r=>['admin','qa_manager'].includes(r))) return [{json:{error:true,message:'Chỉ QA Manager/Admin được nạp literature vào kho AI',status:403}}];\nreturn [{json:{...prev,primary_role:roles[0]}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -64
+      ],
+      "id": "e4e5dc54-2871-4b9c-8493-585ec67a7aff",
+      "name": "Check Permission"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        -64
+      ],
+      "id": "234a9695-55a2-4631-9484-6e963d481c58",
+      "name": "Perm OK?"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=' + encodeURIComponent($json.pmid ? ('EXT_ID:'+$json.pmid+' AND SRC:MED') : ('DOI:'+$json.doi)) + '&format=json&resultType=core&pageSize=1' }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -144
+      ],
+      "id": "61bac567-55a5-499a-a414-b78d552cffb8",
+      "name": "Fetch Article"
+    },
+    {
+      "parameters": {
+        "jsCode": "function sha256Hex(input){\n  let msg;\n  if (typeof input==='string') msg=new TextEncoder().encode(input);\n  else if (input instanceof Uint8Array) msg=input;\n  else if (typeof Buffer!=='undefined' && Buffer.isBuffer(input)) msg=new Uint8Array(input);\n  else msg=new TextEncoder().encode(String(input));\n  const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);\n  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;\n  const l=msg.length;\n  const bitLenHi=Math.floor(l/0x20000000)>>>0;\n  const bitLenLo=(l<<3)>>>0;\n  const withOne=l+1;\n  const k=(56-(withOne%64)+64)%64;\n  const total=withOne+k+8;\n  const m=new Uint8Array(total); m.set(msg,0); m[l]=0x80;\n  const dv=new DataView(m.buffer);\n  dv.setUint32(total-8,bitLenHi); dv.setUint32(total-4,bitLenLo);\n  const w=new Uint32Array(64);\n  const rotr=(x,n)=>((x>>>n)|(x<<(32-n)))>>>0;\n  for(let off=0;off<total;off+=64){\n    for(let i=0;i<16;i++) w[i]=dv.getUint32(off+i*4);\n    for(let i=16;i<64;i++){\n      const s0=(rotr(w[i-15],7)^rotr(w[i-15],18)^(w[i-15]>>>3))>>>0;\n      const s1=(rotr(w[i-2],17)^rotr(w[i-2],19)^(w[i-2]>>>10))>>>0;\n      w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;\n    }\n    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;\n    for(let i=0;i<64;i++){\n      const S1=(rotr(e,6)^rotr(e,11)^rotr(e,25))>>>0;\n      const ch=((e&f)^((~e)&g))>>>0;\n      const t1=(h+S1+ch+K[i]+w[i])>>>0;\n      const S0=(rotr(a,2)^rotr(a,13)^rotr(a,22))>>>0;\n      const maj=((a&b)^(a&c)^(b&c))>>>0;\n      const t2=(S0+maj)>>>0;\n      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;\n    }\n    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;\n  }\n  const toHex=x=>('00000000'+(x>>>0).toString(16)).slice(-8);\n  return toHex(h0)+toHex(h1)+toHex(h2)+toHex(h3)+toHex(h4)+toHex(h5)+toHex(h6)+toHex(h7);\n}\n\n// ==== BODY: normalize bài báo đơn (Europe PMC) + chunk + hash. sha256Hex() được builder chèn phía trên. ====\nconst prev = $('Check Permission').first().json;\nconst resp = $input.first().json;\nconst list = (resp.resultList && resp.resultList.result) || [];\nif (!list.length) {\n  return [{ json: { error: true, message: 'Không tìm thấy bài báo với PMID/DOI đã cho trên Europe PMC', status: 404 } }];\n}\nconst r = list[0];\nfunction clean(s) { return (s || '').toString().replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim(); }\n\nconst title = clean(r.title);\nconst abstract = clean(r.abstractText);\nconst authors = clean(r.authorString);\nconst journal = clean(r.journalTitle || (r.journalInfo && r.journalInfo.journal && r.journalInfo.journal.title));\nconst year = r.pubYear || null;\nconst doi = r.doi || prev.doi || null;\nconst pmid = r.pmid || prev.pmid || null;\n\n// Nội dung embed = header trích dẫn + abstract (đủ ngữ cảnh cho RAG + giữ được citation)\nconst headerLine = title\n  + (authors ? ' | ' + authors : '')\n  + (journal ? ' | ' + journal : '')\n  + (year ? ' | ' + year : '')\n  + (doi ? ' | doi:' + doi : '')\n  + (pmid ? ' | PMID:' + pmid : '');\nconst fullText = (headerLine + '\\n\\n' + (abstract || '(Không có abstract công khai)')).trim();\nif (fullText.length < 40) {\n  return [{ json: { error: true, message: 'Bài báo không có đủ nội dung (title/abstract) để index', status: 422 } }];\n}\n\nconst fileHash = sha256Hex(fullText);\n\n// Chunking (abstract thường ngắn → 1 chunk; vẫn chia nếu dài)\nconst CHUNK_SIZE = 1500, OVERLAP = 200;\nlet chunks = [], idx = 0, start = 0;\nwhile (start < fullText.length) {\n  let end = Math.min(start + CHUNK_SIZE, fullText.length);\n  if (end < fullText.length) { const bp = fullText.lastIndexOf('.', end); if (bp > start + CHUNK_SIZE * 0.5) end = bp + 1; }\n  const ct = fullText.substring(start, end).trim();\n  if (ct) chunks.push({ content: ct, chunk_index: idx++, content_tokens: Math.ceil(ct.length / 3) });\n  if (end >= fullText.length) break;\n  start = end - OVERLAP; if (start < 0) start = 0;\n}\n\nconst organization = prev.database === 'pubmed' ? 'PubMed' : 'Europe PMC';\nconst pubDate = year ? (String(year) + '-01-01') : null;\nconst sourceUrl = doi ? ('https://doi.org/' + doi) : (pmid ? ('https://pubmed.ncbi.nlm.nih.gov/' + pmid + '/') : null);\n\nreturn [{ json: {\n  ...prev,\n  document_title: (title || prev.document_code).slice(0, 500),\n  document_code: prev.document_code,\n  organization, authors, journal, year, doi, pmid,\n  publication_date: pubDate,\n  source_url: sourceUrl,\n  file_hash: fileHash,\n  chunks,\n  texts_for_embedding: chunks.map(c => c.content),\n  total_chunks: chunks.length\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        -144
+      ],
+      "id": "773c1aac-8dc5-453a-9d57-79f492a2dc72",
+      "name": "Normalize Article"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        -144
+      ],
+      "id": "b9c8d775-669c-483e-a83f-99da5123ba3d",
+      "name": "Article Found?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'text-embedding-3-small',input:$json.texts_for_embedding}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2832,
+        -192
+      ],
+      "id": "0ad4a704-e90d-435b-b593-dfcd8036baee",
+      "name": "OpenAI: Embedding",
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tạo SQL INSERT documents cho bài báo literature (source_category='literature', source_type='guideline')\nconst embedResult = $input.first().json;\nconst prev = $('Normalize Article').first().json;\nconst embeddings = embedResult.data || [];\nconst esc = s => String(s == null ? '' : s).replace(/'/g, \"''\");\n\nconst groupId = 'LIT-' + prev.document_code;\nconst trust = parseInt(prev.trust_level, 10) || 2;\nconst docSQL = `INSERT INTO documents (document_group_id,document_code,document_title,document_type,language_code,source_type,source_category,trust_level,source_url,source_organization,publication_date,version,status,file_hash,uploaded_by,last_verified_at) VALUES ('${esc(groupId)}','${esc(prev.document_code)}','${esc(prev.document_title)}','guideline'::document_type,'${prev.language_code}'::language_code,'guideline'::source_type,'literature',${trust},${prev.source_url ? \"'\" + esc(prev.source_url) + \"'\" : 'NULL'},'${esc(prev.organization)}',${prev.publication_date ? \"'\" + prev.publication_date + \"'\" : 'NULL'},'01','indexed'::document_status,'${esc(prev.file_hash)}','${prev.user_id}'::uuid,now()) RETURNING id;`;\n\nreturn [{ json: { docSQL, prev_data: prev, embeddings_json: JSON.stringify(embeddings.map(e => e.embedding)) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3056,
+        -192
+      ],
+      "id": "92a8818e-0a16-4614-b636-1192ee5ae6b6",
+      "name": "Build Doc SQL"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.docSQL }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3280,
+        -192
+      ],
+      "id": "670977bb-2350-4a56-a763-c8aae981507d",
+      "name": "PG: Insert Document",
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build SQL INSERT document_chunks + cập nhật chunk_count + ghi audit (append-only, action document_index)\nconst docResult = $input.first().json;\nconst built = $('Build Doc SQL').first().json;\nconst prev = built.prev_data;\nconst docId = docResult.id;\nconst embeddings = JSON.parse(built.embeddings_json);\nconst esc = s => String(s == null ? '' : s).replace(/'/g, \"''\");\nconst trust = parseInt(prev.trust_level, 10) || 2;\n\nlet values = [];\nfor (let i = 0; i < prev.chunks.length; i++) {\n  const c = prev.chunks[i];\n  const emb = embeddings[i];\n  const embStr = emb ? \"'[\" + emb.join(',') + \"]'\" : 'NULL';\n  values.push(`('${docId}','${esc(c.content)}',${c.content_tokens},${c.chunk_index},NULL,'text','${esc(prev.document_code)}','01','${prev.language_code}'::language_code,'guideline'::source_type,'literature',${trust},'${esc(prev.organization)}','${esc(prev.file_hash)}',${embStr}::vector,'indexed'::document_status)`);\n}\n\nconst summary = 'Literature ingest: ' + prev.document_code + ' (' + prev.organization + ') — ' + String(prev.document_title || '').slice(0, 120);\nconst chunksSQL = `INSERT INTO document_chunks (document_id,content,content_tokens,chunk_index,page_number,chunk_type,document_code,document_version,language_code,source_type,source_category,trust_level,source_organization,file_hash,embedding,status) VALUES ${values.join(',')};\\nUPDATE documents SET chunk_count=${prev.chunks.length} WHERE id='${docId}'::uuid;\\nSELECT write_audit_log('${prev.user_id}'::uuid,NULL,'${esc(prev.primary_role)}','document_index'::audit_action,'${esc(summary)}',NULL,NULL,'${docId}'::uuid,'${esc(prev.document_code)}');`;\n\nreturn [{ json: { chunksSQL, document_id: docId, document_code: prev.document_code, title: prev.document_title, organization: prev.organization, total_chunks: prev.chunks.length } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3504,
+        -192
+      ],
+      "id": "bb210f5c-d07b-46b3-8fdc-64d0f576de70",
+      "name": "Build Chunks SQL"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.chunksSQL }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3728,
+        -192
+      ],
+      "id": "40146141-0db5-4293-b96f-c68a512d0235",
+      "name": "PG: Insert Chunks + Audit",
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:true,mode:'ingest',document_id:$('Build Chunks SQL').first().json.document_id,document_code:$('Build Chunks SQL').first().json.document_code,title:$('Build Chunks SQL').first().json.title,organization:$('Build Chunks SQL').first().json.organization,source_category:'literature',trust_level:2,chunks_created:$('Build Chunks SQL').first().json.total_chunks,status:'indexed',message:'Đã index bài báo (literature) ở trạng thái indexed. CHƯA vào AI — cần QA duyệt: reviewed → approved_for_ai_use.'}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        3952,
+        -192
+      ],
+      "id": "05035553-3b29-450a-a758-036e5fdbca9f",
+      "name": "Ingest Response"
+    }
+  ],
+  "connections": {
+    "Webhook Literature Search": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + Auth",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Auth": {
+      "main": [
+        [
+          {
+            "node": "Input OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input OK?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Ingest?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Ingest?": {
+      "main": [
+        [
+          {
+            "node": "PG: Check Role",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Search URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Search URL": {
+      "main": [
+        [
+          {
+            "node": "Europe PMC Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Europe PMC Search": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Results": {
+      "main": [
+        [
+          {
+            "node": "Search Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Check Role": {
+      "main": [
+        [
+          {
+            "node": "Check Permission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Permission": {
+      "main": [
+        [
+          {
+            "node": "Perm OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perm OK?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article": {
+      "main": [
+        [
+          {
+            "node": "Normalize Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Article": {
+      "main": [
+        [
+          {
+            "node": "Article Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article Found?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI: Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Embedding": {
+      "main": [
+        [
+          {
+            "node": "Build Doc SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Doc SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Insert Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Insert Document": {
+      "main": [
+        [
+          {
+            "node": "Build Chunks SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chunks SQL": {
+      "main": [
+        [
+          {
+            "node": "PG: Insert Chunks + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Insert Chunks + Audit": {
+      "main": [
+        [
+          {
+            "node": "Ingest Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
