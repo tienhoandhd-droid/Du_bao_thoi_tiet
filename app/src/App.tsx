@@ -15,6 +15,7 @@ import { classifyEnvValue, getPublicEnv, maskValue } from "@/lib/env";
 import { sb } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
+import { ValidationPage } from "@/features/validation/ValidationPage";
 import type {
   AuditEntry,
   DashboardHealthResponse,
@@ -24,7 +25,7 @@ import type {
 } from "@/types/api";
 import type { EnvCheck } from "@/types/env";
 
-type PageId = "dashboard" | "ai-search" | "documents" | "audit" | "security";
+type PageId = "dashboard" | "ai-search" | "documents" | "audit" | "security" | "validation";
 
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 
@@ -34,6 +35,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   documents: "❆ Thư viện tài liệu",
   audit: "✧ Audit Trail",
   security: "🔒 Bảo mật",
+  validation: "⚗ Công cụ thẩm định",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -720,6 +722,10 @@ export default function App() {
           onRun={runSecurityCheck}
         />
       ) : null}
+
+      {page === "validation" && sb ? (
+        <ValidationPage sb={sb} token={token} onUnauthorized={() => void handleLogout()} />
+      ) : null}
     </Shell>
   );
 }
@@ -905,6 +911,9 @@ function Shell({
             <NavItem active={page === "security"} onClick={() => onPageChange("security")}>
               🔒 Bảo mật
             </NavItem>
+            <NavItem active={page === "validation"} onClick={() => onPageChange("validation")}>
+              ⚗ Công cụ thẩm định
+            </NavItem>
           </nav>
         </aside>
 
@@ -947,6 +956,9 @@ function Shell({
                 </MobileNavItem>
                 <MobileNavItem active={page === "security"} onClick={() => onPageChange("security")}>
                   Bảo mật
+                </MobileNavItem>
+                <MobileNavItem active={page === "validation"} onClick={() => onPageChange("validation")}>
+                  Thẩm định
                 </MobileNavItem>
               </div>
             </div>
