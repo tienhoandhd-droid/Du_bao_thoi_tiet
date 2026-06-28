@@ -116,8 +116,23 @@ Nếu bạn cần paste thêm dữ liệu live cho Codex (vì Codex không có M
 | Workflow JSON live | Claude Code: `mcp__claude_ai_n8n__get_workflow_details` với workflow ID |
 | Credential list | Claude Code: `mcp__claude_ai_n8n__list_credentials` |
 
+## Lấy bước tiếp theo (sau khi Chat PASS)
+
+Sau khi Codex GPT báo PASS và bàn giao HANDOFF PACKAGE, **paste câu sau vào Claude Code**:
+
+```
+/crave-next-step
+```
+
+Claude Code sẽ tự đọc kehoach.md + git log → in ra:
+- Chat tiếp theo là gì, owner là ai
+- Prompt copy-paste sẵn sàng (cho Codex hoặc Claude Code)
+- Preview Chat sau đó
+
+---
+
 ## Lưu ý quan trọng
 
 - **Codex không nhớ ngữ cảnh giữa các phiên** — luôn paste lại context trên ở đầu mỗi phiên mới.
-- **Khi Codex xong** → copy HANDOFF PACKAGE → paste vào Claude Code để review bằng skill `/crave-claude-reviewer`.
-- **Với nhóm <10 người**, một người có thể làm cả Codex chat lẫn Claude Code review trong cùng ngày; ghi rõ trong báo cáo ai làm gì.
+- **Khi Codex xong** → copy HANDOFF PACKAGE → paste vào Claude Code → gõ `/crave-next-step` để lấy prompt Chat kế.
+- **Với nhóm <10 người**, một người có thể làm cả Codex chat lẫn Claude Code trong cùng ngày; ghi rõ trong báo cáo ai làm gì.

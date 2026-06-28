@@ -59,7 +59,15 @@ Trạng thái: PASS / BLOCKED / READY_FOR_GITHUB_APPROVAL / READY_FOR_LIVE_APPRO
 ### Claude Code
 **Làm được:** đọc live Supabase/n8n qua MCP (read-only mặc định), chạy Bash/CLI, review code + schema với bằng chứng live, apply migration (sau xác nhận), push GitHub (sau xác nhận), publish n8n (sau xác nhận).
 
-**Skill mặc định:** đọc `nangcap.md` + `kehoach.md` trước khi bắt đầu Chat. Không dùng mô hình builder/reviewer cũ.
+**Ba skill chính của Claude Code:**
+
+| Skill | Khi dùng | Gõ |
+|-------|----------|-----|
+| `crave-claude-builder` | Claude Code là owner của Chat công việc | `/crave-claude-builder` |
+| `crave-claude-reviewer` | Claude Code là owner của System Check S1/S3/S5/S7 | `/crave-claude-reviewer` |
+| `crave-next-step` | Sau bất kỳ Chat nào PASS — in prompt Chat tiếp theo | `/crave-next-step` |
+
+**Quy tắc:** Đầu mỗi Chat đọc `nangcap.md` + `kehoach.md`. Không dùng mô hình builder/reviewer cũ (Codex xây → Claude kiểm toàn bộ).
 
 ---
 
