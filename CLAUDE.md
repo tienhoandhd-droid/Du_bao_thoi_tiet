@@ -146,6 +146,11 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 - `eval_runs` bảng cũ: có 3 lần chạy thử với 0% và baseline 62.5% trước khi fix — bình thường, là lịch sử phát triển.
 - `expected_sources` trong `golden_questions` là GMP **keyword** (không phải mã tài liệu) cho 45/48 câu; chỉ 3 câu có mã thật (VQ-QT-003, ISO-14644-3, WHO-TRS-996). Hàm eval v3 xử lý cả hai loại.
 
+**4. GitHub Actions CI PASS (cuối Chat 19):**
+- `eval.yml` sửa: đọc `vars.SUPABASE_SERVICE_ROLE_KEY` (người dùng đã lưu key vào **Repository Variables** thay vì Secrets) thay vì `secrets.SUPABASE_SERVICE_ROLE_KEY`. Commit `b7e89e4`.
+- Actions run `28321281206` xác nhận **CI PASS**: Hit@5=93.75% ≥ 80% từ pipeline GitHub Actions.
+- **Lưu ý vĩnh viễn:** `SUPABASE_SERVICE_ROLE_KEY` nằm trong **Variables** (không phải Secrets) → dùng `vars.SUPABASE_SERVICE_ROLE_KEY` trong eval.yml và mọi workflow CI tương lai.
+
 **Sản phẩm Chat 19:** `ObservabilityPanel.tsx` · `CragBadge` (trong App.tsx) · `EvalPanel.tsx` · `eval.yml` · `supabase/migrations/021_eval_harness.sql` + 021b/c/d + 021_down.sql · CLAUDE.md (file này).
 
 ### ✅ Chat 18 — WF-14 Web Document Search + CRAVE Architecture Review
@@ -258,10 +263,10 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 
 **CRAVE Maturity: ✅ Mức 4 (Evaluated & Observable Agentic RAG) — đã đạt với Chat 19.**
 
-**Ưu tiên cao (kế tiếp):**
-- **Mở rộng golden dataset lên 100 câu** — phủ multi-hop, edge case, câu đa thiết bị; bổ sung câu tiếng Anh (hiện 45 VI + 3 EN). Chạy lại eval để xác nhận Hit@5 giữ ≥80% sau khi mở rộng.
-- **Seed SOP thật** — thay 7 SOP mẫu bằng tài liệu nội bộ thực tế qua WF-10 (Google Drive) hoặc WF-11 (Literature). Chạy lại eval sau ingest.
-- **Thêm GitHub Secret `SUPABASE_SERVICE_ROLE_KEY`** — để `eval.yml` chạy được qua Actions (hiện CHƯA có secret, nếu chạy Actions sẽ fail bước kiểm tra). Hướng dẫn: Supabase → `bdttccztjtrcaztjgkot` → Project Settings → API → copy service_role key → GitHub repo → Settings → Secrets → New secret tên `SUPABASE_SERVICE_ROLE_KEY`.
+**Ưu tiên cao (kế tiếp — Chat 20):**
+- **Mở rộng golden dataset lên 100 câu** — phủ multi-hop, edge case, câu đa thiết bị; bổ sung câu tiếng Anh (hiện 45 VI + 3 EN → mục tiêu 80 VI / 20 EN). Chủ đề mới: supplier qualification, APR/PQR, process validation stage 1/2/3, SPC, container closure integrity, media fill, GDP, batch release, khiếu nại khách hàng. Chạy lại eval để xác nhận Hit@5 giữ ≥80%. Không cần migration mới (dùng `golden_questions` hiện có). **→ CODEX generate SQL + CLAUDE CODE review + insert + eval.**
+- **Seed SOP thật** — thay 7 SOP mẫu bằng tài liệu nội bộ thực tế qua WF-10 (Google Drive) hoặc WF-11 (Literature). Chạy lại eval sau ingest. Tiến hành song song hoặc ngay sau Chat 20.
+- ~~**Thêm `SUPABASE_SERVICE_ROLE_KEY`**~~ ✅ DONE (Chat 19 — lưu trong Variables, eval.yml đọc qua `vars.*`).
 
 **Ưu tiên trung bình:**
 - **AI Reviewer SOP** — đánh giá SOP nội bộ theo checklist WHO/ICH/GAMP5/ALCOA+/Annex 11/EU Annex 22 (draft 7/2025); mọi output là DRAFT, human sign-off bắt buộc.
