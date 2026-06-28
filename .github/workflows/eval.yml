@@ -1,0 +1,104 @@
+name: GMP Eval Harness — FTS Retrieval
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_tag:
+        description: "Nhãn model/phiên bản (ghi vào eval_runs)"
+        required: false
+        default: "fts-v1"
+      top_k:
+        description: "Top-K kết quả để kiểm tra Hit@K"
+        required: false
+        default: "5"
+      notes:
+        description: "Ghi chú về lần chạy này"
+        required: false
+        default: ""
+
+jobs:
+  eval:
+    name: Run FTS Retrieval Eval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kiểm tra biến bắt buộc
+        run: |
+          if [ -z "${{ vars.SUPABASE_URL }}" ]; then
+            echo "❌ SUPABASE_URL chưa set (Repository Variables)"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "❌ SUPABASE_SERVICE_ROLE_KEY chưa set (Repository Secrets)"
+            echo "   Vào Settings → Secrets and variables → Actions → New repository secret"
+            echo "   Tên: SUPABASE_SERVICE_ROLE_KEY, Giá trị: lấy từ Supabase → Project Settings → API"
+            exit 1
+          fi
+
+      - name: Gọi run_fts_eval_v1() qua Supabase REST
+        id: eval_call
+        run: |
+          NOTES="${{ github.event.inputs.notes }}"
+          if [ -z "$NOTES" ]; then
+            NOTES="CI eval — branch ${{ github.ref_name }}, sha ${{ github.sha }}"
+          fi
+
+          RESPONSE=$(curl -sf \
+            -X POST \
+            "${{ vars.SUPABASE_URL }}/rest/v1/rpc/run_fts_eval_v1" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"p_top_k\": ${{ github.event.inputs.top_k }}, \"p_model_tag\": \"${{ github.event.inputs.model_tag }}\", \"p_notes\": \"$NOTES\"}" \
+          )
+
+          echo "raw_response=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "### Kết quả Eval" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Phân tích kết quả
+        run: |
+          RESPONSE='${{ steps.eval_call.outputs.raw_response }}'
+
+          N_TOTAL=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('n_total',0))")
+          N_SRC=$(echo "$RESPONSE"   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('n_with_sources',0))")
+          HIT1=$(echo "$RESPONSE"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('hit_at_1_pct','N/A'))")
+          HIT3=$(echo "$RESPONSE"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('hit_at_3_pct','N/A'))")
+          HIT5=$(echo "$RESPONSE"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('hit_at_5_pct','N/A'))")
+          MRR=$(echo "$RESPONSE"     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('mrr','N/A'))")
+          PASSED=$(echo "$RESPONSE"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('passed',False))")
+          RUN_ID=$(echo "$RESPONSE"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('run_id','?'))")
+
+          echo ""
+          echo "══════════════════════════════════════"
+          echo " GMP EVAL HARNESS — Kết quả"
+          echo "══════════════════════════════════════"
+          echo " Run ID     : $RUN_ID"
+          echo " Câu hỏi    : $N_SRC/$N_TOTAL (có expected_sources)"
+          echo " Hit@1      : ${HIT1}%"
+          echo " Hit@3      : ${HIT3}%"
+          echo " Hit@5      : ${HIT5}%  (ngưỡng: ≥80%)"
+          echo " MRR        : $MRR"
+          echo " PASS       : $PASSED"
+          echo "══════════════════════════════════════"
+
+          {
+            echo "| Metric | Giá trị |"
+            echo "|--------|---------|"
+            echo "| Câu hỏi có nguồn | $N_SRC / $N_TOTAL |"
+            echo "| Hit@1 | ${HIT1}% |"
+            echo "| Hit@3 | ${HIT3}% |"
+            echo "| **Hit@5** | **${HIT5}%** |"
+            echo "| MRR | $MRR |"
+            echo "| **Kết quả** | $([ \"$PASSED\" = 'True' ] && echo '✅ PASS' || echo '❌ FAIL — Hit@5 < 80%') |"
+          } >> $GITHUB_STEP_SUMMARY
+
+          if [ "$PASSED" = "False" ]; then
+            echo ""
+            echo "❌ FAIL: Hit@5 = ${HIT5}% < 80%"
+            echo "   → Kiểm tra lại chất lượng ingest tài liệu hoặc FTS tokenization"
+            exit 1
+          fi
+
+          echo "✅ PASS: Hit@5 = ${HIT5}% ≥ 80%"

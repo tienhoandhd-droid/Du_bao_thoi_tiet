@@ -18,6 +18,7 @@ import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
 import { ObservabilityPanel, type ObservabilityRow } from "@/features/observability/ObservabilityPanel";
+import { EvalPanel } from "@/features/eval/EvalPanel";
 import type {
   AuditEntry,
   DashboardHealthResponse,
@@ -752,11 +753,14 @@ export default function App() {
       ) : null}
 
       {page === "security" ? (
-        <SecurityPage
-          checks={securityChecks}
-          loading={securityRunning}
-          onRun={runSecurityCheck}
-        />
+        <>
+          <SecurityPage
+            checks={securityChecks}
+            loading={securityRunning}
+            onRun={runSecurityCheck}
+          />
+          <EvalPanel />
+        </>
       ) : null}
 
       {page === "validation" && sb ? (
