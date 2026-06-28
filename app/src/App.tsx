@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
+import { ObservabilityPanel, type ObservabilityRow } from "@/features/observability/ObservabilityPanel";
 import type {
   AuditEntry,
   DashboardHealthResponse,
@@ -302,6 +303,8 @@ export default function App() {
   const [securityChecks, setSecurityChecks] = useState<SecurityCheckItem[]>([]);
   const [securityRunning, setSecurityRunning] = useState(false);
 
+  const [observabilityRows, setObservabilityRows] = useState<ObservabilityRow[]>([]);
+
   const token = session?.access_token ?? "";
 
   const resetLocalSession = useCallback(() => {
@@ -372,6 +375,23 @@ export default function App() {
       setDashboardLoading(false);
     }
   }, [handleLogout, token]);
+
+  const loadObservability = useCallback(async () => {
+    if (!sb) return;
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
+    try {
+      const { data } = await sb
+        .from("audit_log")
+        .select("action_type, timestamp")
+        .gte("timestamp", since.toISOString())
+        .order("timestamp", { ascending: false })
+        .limit(2000);
+      setObservabilityRows((data ?? []) as ObservabilityRow[]);
+    } catch {
+      // Non-blocking — dashboard still shows without observability stats
+    }
+  }, []);
 
   const loadDocuments = useCallback(async () => {
     if (!token) return;
@@ -631,10 +651,13 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
 
-    if (page === "dashboard") void loadDashboard();
+    if (page === "dashboard") {
+      void loadDashboard();
+      void loadObservability();
+    }
     if (page === "documents") void loadDocuments();
     if (page === "audit") void loadAudit();
-  }, [loadAudit, loadDashboard, loadDocuments, page, session]);
+  }, [loadAudit, loadDashboard, loadDocuments, loadObservability, page, session]);
 
   const currentRoleLabel = roleLabel(roles[0] || "viewer");
 
@@ -679,6 +702,7 @@ export default function App() {
           data={dashboard}
           error={dashboardError}
           loading={dashboardLoading}
+          observabilityRows={observabilityRows}
         />
       ) : null}
 
@@ -989,10 +1013,12 @@ function DashboardPage({
   data,
   loading,
   error,
+  observabilityRows,
 }: {
   data: DashboardHealthResponse | null;
   loading: boolean;
   error: string;
+  observabilityRows: ObservabilityRow[];
 }) {
   const stats = data?.stats ?? {};
   const warnings = data?.warnings ?? [];
@@ -1079,6 +1105,8 @@ function DashboardPage({
           <StateBlock>✓ Không có cảnh báo — hệ thống hoạt động bình thường</StateBlock>
         )}
       </Panel>
+
+      <ObservabilityPanel rows={observabilityRows} />
     </>
   );
 }
