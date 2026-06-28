@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 19**: **Eval Harness PASS (Hit@5 = 93.75%)** + Observability Dashboard + CRAG-Lite. Migration 021 + 021b/c/d applied. 7 SOP mẫu seed (40 chunks) vào `bdttccztjtrcaztjgkot`. *(Chat 18: WF-14 Web Document Search PASS; Chat 17: WF-13 Validation Copilot PASS + migration 020.)*
+**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 20**: **Golden Dataset V/Q 58 câu + Eval PASS Hit@5=96.55%** (MRR=0.8807). Seed 5 mini-SOP (GMP-SOP-006→010, 25 chunks). Fix bug eval ORDER BY → migration 022 applied. *(Chat 19: Eval Harness 93.75% + Observability + CRAG-Lite; Chat 18: WF-14 Web Search; Chat 17: WF-13 Copilot.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -45,7 +45,8 @@
 | **WF-14 Web Document Search (Chat 18)** | ✅ **Active** | Tavily search_depth=advanced; trust-level mapping 4 tầng (WHO/ICH=4, ISPE/PubMed=3); 4 mode (general/guideline/literature/forum); audit INSERT; webhook `/web-search`; key trong CONFIG node. |
 | **Observability Dashboard (Chat 19)** | ✅ Deploy | `ObservabilityPanel.tsx` — biểu đồ 7 ngày từ `audit_log`; daily trend + action breakdown; không cần migration. |
 | **CRAG-Lite (Chat 19)** | ✅ Deploy | `CragBadge` trong AiSearchPage: avg relevance_score → 🟢/🟡/🔴; nút "Thử web →" khi low-confidence tự fill WebSearchPanel. |
-| **Eval Harness FTS (Chat 19)** | ✅ **PASS Hit@5=93.75%** | Migration 021+021b/c/d; `run_fts_eval_v1()` OR-tsquery; `EvalPanel.tsx` (trang Security); `eval.yml` (workflow_dispatch); 7 SOP mẫu seed. |
+| **Eval Harness FTS (Chat 19)** | ✅ PASS | Migration 021+021b/c/d; `run_fts_eval_v1()` OR-tsquery; `EvalPanel.tsx`; `eval.yml`; 7 SOP mẫu seed (40 chunks). Baseline 93.75%. |
+| **Golden Dataset V/Q + Eval (Chat 20)** | ✅ **PASS Hit@5=96.55%** | 100 câu tổng / 58 active (42 ngoài phạm vi deactivated). Phạm vi: thẩm định nhà máy+thiết bị. Seed GMP-SOP-006→010 (25 chunks). Migration 022 fix eval ORDER BY → rank DESC. Hit@1=81.03%, MRR=0.8807. |
 
 ---
 
@@ -115,6 +116,48 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 ### ✅ Chat 10–16 — Xem git log (tóm lược)
 Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migration 014 `chat_memory`. Chat 12: UI trợ lý + nối WF-12. Chat 13: Governance eval PASS + 50 câu GMP + migration 016. Chat 14: Equipment-Aware + Glossary + migration 017/018 + tab Validation (draft/check/calculate/glossary). Chat 15: skills-as-code, runbook hồi quy. Chat 16: WF-10 Google Drive Sync PASS + migration 019.
+
+### ✅ Chat 20 — Golden Dataset V/Q + Eval PASS Hit@5=96.55%
+
+**Bối cảnh:** Mở rộng golden dataset từ 50 → 100 câu (Codex giao batch2 50 câu). Người dùng làm công việc **thẩm định nhà máy và thiết bị** → lọc bỏ câu ngoài phạm vi.
+
+**1. PHA 2A — Review batch2 (50 câu từ Codex):**
+- Kiểm tra 50 câu: 0 lỗi syntax/enum. Ngôn ngữ hợp lệ, confidence hợp lệ, 10 chủ đề × 5 câu.
+- Chủ đề batch2: supplier_qualification, annual_product_review, process_validation_lifecycle, statistical_process_control, container_closure_integrity, sterility_assurance, good_distribution_practice, batch_release, facility_cleaning, customer_complaints.
+
+**2. PHA 2B — Insert + Scope Curation:**
+- INSERT 50 câu → COUNT=100.
+- Người dùng xác nhận phạm vi: **thẩm định nhà máy + thiết bị** (IQ/OQ/PQ/DQ, process validation lifecycle, SPC, CCI, sterility assurance, facility cleaning, cleaning validation, CSV/GxP, CAPA, deviations, calibration).
+- **Deactivate 42 câu ngoài phạm vi** (`is_active=false`): 16 từ batch1 (EM/cleanroom/IPC/storage/cold_chain/data_integrity/CSV/APR/batch_release/complaints/GDP/supplier_qual trùng batch2) + 26 từ batch2 (supplier_qual×5, annual_product_review×5, batch_release×5, customer_complaints×5, good_distribution_practice×5, negative_test×1).
+- **Kết quả:** 100 tổng / **58 active (47 VI + 11 EN)** / 42 inactive.
+
+**3. Bug Eval — Root Cause & Fix:**
+- Eval ban đầu sau deactivate: **FAIL 62.07%** (rr=0 cho toàn bộ batch2 topics).
+- Seed 5 mini-SOP: **FAIL 68.97%** — vẫn không đủ.
+- **Root cause:** `run_fts_eval_v1()` dùng `DISTINCT ON (document_code) ORDER BY document_code, rank DESC LIMIT 5` → kết quả trả về theo **alphabet tên document** (không phải relevance). `GMP-SOP-001`→`005` alphabetically trước `GMP-SOP-006`→`010` → LIMIT 5 cắt hết topic-specific docs.
+- **Fix — Migration 022:** wrap DISTINCT ON trong subquery, thêm `ORDER BY rank DESC` bên ngoài trước LIMIT → top-k by relevance score.
+
+**4. Seed 5 mini-SOP documents (GMP-SOP-006→010):**
+- Schema thực: bảng `documents` (cột `document_title`, `document_type='sop'`, `status='approved_for_ai_use'`) + bảng `document_chunks` (không phải `chunks`). `content_tsv` auto-populate qua trigger.
+- GMP-SOP-006: Process Validation Lifecycle (Stage 1/2/3, CPP/CQA, PPQ, Continued Process Verification).
+- GMP-SOP-007: SPC (control chart, giới hạn kiểm soát, common/special cause, Cpk, OOT trend).
+- GMP-SOP-008: Container Closure Integrity (CCI, vacuum decay, pressure decay, USP-1207, headspace, stopper change).
+- GMP-SOP-009: Sterility Assurance / Media Fill (SAL 10^-6, APS, worst case, interventions, APS investigation).
+- GMP-SOP-010: Facility Cleaning (cleaning schedule, pest control, dedicated area, HBEL, disinfectant rotation, cleaning contractor).
+- **5 docs × 5 chunks = 25 chunks.** `document_group_id='GRP-GMP'`, `approved_for_ai_use=true`.
+
+**5. Kết quả cuối cùng (sau migration 022):**
+- `run_fts_eval_v1(5, 'fts-v3-58q-rankfix', ...)` → **Hit@5=96.55%, Hit@1=81.03%, Hit@3=94.83%, MRR=0.8807 — PASS** ✅
+- Còn 2 câu fail: `iq_prerequisites` (VI+EN) cần VQ-QT-003 trong top-5 khi nhiều docs match với từ chung "điều kiện" → ngưỡng chấp nhận được (96.55% >> 80%).
+- Run ID: `4fc90c40-99d7-4a9c-a498-3dfa8b80c7a2`.
+
+**Ghi chú kỹ thuật schema (phát hiện lần đầu Chat 20):**
+- Bảng tên thật: `documents` + `document_chunks` (KHÔNG phải `chunks`).
+- Column `document_title` (KHÔNG phải `title`), `language_code` (KHÔNG phải `language`), `document_type` (enum, 'sop'), `status='approved_for_ai_use'`.
+- UNIQUE constraint trên `documents`: `(document_code, version, language_code)` — KHÔNG phải chỉ `document_code`.
+- `document_chunks` cũng có cột `status`, `document_code`, `document_version` (denormalized) và `content_tsv` (tsvector, auto-updated trigger).
+
+**Sản phẩm Chat 20:** 50 câu batch2 inserted · 42 câu deactivated (phạm vi V/Q) · GMP-SOP-006→010 seeded (25 chunks) · Migration 022 (`022_fix_eval_rank_order`) applied · Eval PASS 96.55%.
 
 ### ✅ Chat 19 — Eval Harness PASS + Observability + CRAG-Lite
 
@@ -229,6 +272,7 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 **HOÃN (Chat 07):** WF-11 nạp lại cùng `pmid`/`doi` đụng `UNIQUE(...)` → xử lý `ON CONFLICT`/versioning sau.
 **Credential (ĐÃ DỌN ở Chat 09):** OpenAI = **`OpenAl`** (l thường, ID `r5CCCyYKeJDjnJ0A`). Nợ `OpenAL` đã **hết** — WF-03/04/05/09 đổi `OpenAL`→`OpenAl` (giữ `id:"REPLACE"`, relink khi import); `WF-02 __1_` đã loại khỏi repo.
 **Cảnh báo lành tính (Chat 09):** Action #18 báo "Node.js 20 deprecated … forced to run on Node.js 24" — là deprecation runtime của *bản action* (`checkout@v4`/`setup-node@v4`…), KHÔNG đụng build (app dùng Node 22). Tùy chọn nâng major action (`checkout@v5`…) để hết cảnh báo.
+**E1 — Bug eval ORDER BY (ĐÃ SỬA Chat 20):** `run_fts_eval_v1()` sắp xếp kết quả theo `document_code` alphabetical → LIMIT 5 cắt topic-specific docs vì GMP-SOP-006→010 sort sau GMP-SOP-001→005. Fix: migration 022 wrap DISTINCT ON, ORDER BY rank DESC trước LIMIT.
 
 ---
 
@@ -259,14 +303,15 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ 17 Validation Copilot (WF-13 + migration 020 + CopilotPanel) · ✅ 18 Web Document Search (WF-14 + WebSearchPanel) · ✅ **19 Eval Harness PASS (Hit@5=93.75%) + Observability + CRAG-Lite**
+**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ 17 Validation Copilot (WF-13 + migration 020 + CopilotPanel) · ✅ 18 Web Document Search (WF-14 + WebSearchPanel) · ✅ 19 Eval Harness PASS (93.75%) + Observability + CRAG-Lite · ✅ **20 Golden Dataset V/Q 58 câu + Eval PASS 96.55% + Migration 022**
 
-**CRAVE Maturity: ✅ Mức 4 (Evaluated & Observable Agentic RAG) — đã đạt với Chat 19.**
+**CRAVE Maturity: ✅ Mức 4 (Evaluated & Observable Agentic RAG) — đạt Chat 19, củng cố Chat 20 (96.55%).**
 
-**Ưu tiên cao (kế tiếp — Chat 20):**
-- **Mở rộng golden dataset lên 100 câu** — phủ multi-hop, edge case, câu đa thiết bị; bổ sung câu tiếng Anh (hiện 45 VI + 3 EN → mục tiêu 80 VI / 20 EN). Chủ đề mới: supplier qualification, APR/PQR, process validation stage 1/2/3, SPC, container closure integrity, media fill, GDP, batch release, khiếu nại khách hàng. Chạy lại eval để xác nhận Hit@5 giữ ≥80%. Không cần migration mới (dùng `golden_questions` hiện có). **→ CODEX generate SQL + CLAUDE CODE review + insert + eval.**
-- **Seed SOP thật** — thay 7 SOP mẫu bằng tài liệu nội bộ thực tế qua WF-10 (Google Drive) hoặc WF-11 (Literature). Chạy lại eval sau ingest. Tiến hành song song hoặc ngay sau Chat 20.
+**Ưu tiên cao (kế tiếp — Chat 21+):**
+- **Seed SOP thật** — thay 12 SOP mẫu (GMP-SOP-001→010, VQ-QT-003, WHO-TRS-996) bằng tài liệu nội bộ thực tế qua WF-10 (Google Drive) hoặc WF-11 (Literature). Sau đó chạy lại eval để xác nhận Hit@5 giữ ≥80%. Ưu tiên cao nhất cho Chat 21.
+- **Thêm câu golden dataset cho iq_prerequisites** (2 câu đang fail vì VQ-QT-003 bị cut off khi nhiều doc khớp từ chung) — hoặc bổ sung nội dung điều kiện tiên quyết vào chunk VQ-QT-003 có keyword cụ thể hơn.
 - ~~**Thêm `SUPABASE_SERVICE_ROLE_KEY`**~~ ✅ DONE (Chat 19 — lưu trong Variables, eval.yml đọc qua `vars.*`).
+- ~~**Mở rộng golden dataset lên 100 câu**~~ ✅ DONE (Chat 20 — 100 total, 58 active V/Q scope).
 
 **Ưu tiên trung bình:**
 - **AI Reviewer SOP** — đánh giá SOP nội bộ theo checklist WHO/ICH/GAMP5/ALCOA+/Annex 11/EU Annex 22 (draft 7/2025); mọi output là DRAFT, human sign-off bắt buộc.
@@ -310,7 +355,7 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 | OpenAI runtime | Chỉ từ n8n backend |
 | AI sources | Chỉ `approved_for_ai_use`; **mọi tool agent qua `hybrid_search_v3`** (không SELECT thô) |
 | Audit log | Append-only (INSERT); mỗi lượt trợ lý đều ghi |
-| Migration | 001→011 (cài từ đầu) → 013–021d applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. **Mới tiếp = 022+.** |
+| Migration | 001→011 (cài từ đầu) → 013–022 applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions, 022 fix eval rank. **Mới tiếp = 023+.** |
 | Ngôn ngữ | Tiếng Việt |
 
 ---
