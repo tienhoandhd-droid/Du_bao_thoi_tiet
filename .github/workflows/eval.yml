@@ -27,10 +27,8 @@ jobs:
             echo "❌ SUPABASE_URL chưa set (Repository Variables)"
             exit 1
           fi
-          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            echo "❌ SUPABASE_SERVICE_ROLE_KEY chưa set (Repository Secrets)"
-            echo "   Vào Settings → Secrets and variables → Actions → New repository secret"
-            echo "   Tên: SUPABASE_SERVICE_ROLE_KEY, Giá trị: lấy từ Supabase → Project Settings → API"
+          if [ -z "${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "❌ SUPABASE_SERVICE_ROLE_KEY chưa set (Repository Variables)"
             exit 1
           fi
 
@@ -45,8 +43,8 @@ jobs:
           RESPONSE=$(curl -sf \
             -X POST \
             "${{ vars.SUPABASE_URL }}/rest/v1/rpc/run_fts_eval_v1" \
-            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "apikey: ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{\"p_top_k\": ${{ github.event.inputs.top_k }}, \"p_model_tag\": \"${{ github.event.inputs.model_tag }}\", \"p_notes\": \"$NOTES\"}" \
           )
