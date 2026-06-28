@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-26 — sau **Chat 09**: **dọn nợ credential** (`OpenAL`→`OpenAl` ở WF-03/04/05/09) + dựng **đường ống build TypeScript (Vite)** trong thư mục con `app/`; "hello dashboard" **deploy XANH trên Pages** (Action #18 Success 23s, inject `VITE_*` OK, 3 biến hiển thị OK). *(Chat 08: tái định phạm vi + spike GĐ0 ĐẠT, kế hoạch 09→15.)*
+**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 17**: **Validation Copilot PASS** — WF-13 active trên n8n + Migration 020 (`validation_sessions`/`session_messages`, RLS, trigger append-only) applied lên `bdttccztjtrcaztjgkot` + `CopilotPanel.tsx` deploy (tab "Validation Copilot" trong ValidationPage, chat bubble, badge grounded, trích dẫn collapsible, 0 `dangerouslySetInnerHTML`). *(Chat 16: WF-10 Google Drive Sync PASS + migration 019; Chat 13: Governance eval PASS + 50 câu GMP.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -33,13 +33,15 @@
 | **Frontend (Ice Crystal, vanilla module)** | ✅ Deploy + login + RAG có trích dẫn ĐẠT | `index.html`+`styles.css`+`js/config.js`+`js/app.js`; inject từ **Variables** |
 | User admin | ✅ Đã tạo | `tienhoan.dhd@gmail.com`, Quản trị viên |
 | CRAVE: Reranker + Query Expansion | ✅ Trong WF-02(__2_) | pool 24 → top 8, expansion VI+EN |
-| **WF-11 Literature Search** | 🟡 File sẵn sàng (23/23), credential **ID thật** | webhook `literature-search`, 2 chế độ search/ingest, verify Cách B byte-identical. **WF-11 ĐÃ SẠCH** (OpenAl + ID thật). Chưa import. |
-| **Spike GĐ0 — AI Agent native** | ✅ **ĐẠT** (Chat 08) | Agent + tool-calling chạy trong sandbox; trả `SPIKE OK - ket qua = 391` qua Calculator (Chat Model chạy 2×). **Crypto-block KHÔNG đụng đường agent.** |
-| **Frontend TypeScript — nền móng** | ✅ **Deploy XANH trên Pages** (Chat 09) | Vite 5 + React 18 + TS + Tailwind 3 + shadcn foundation, đặt trong `app/`; build trong Actions; inject `VITE_*` OK (3 biến). Port 5 trang → Chat 10 |
-| **WF-12 — lõi trợ lý agentic** | 🔲 Kế hoạch (Chat 11) | AI Agent + tools governed + memory Postgres; đường chính (spike đã xác nhận) |
-| n8n WF-10 | 🔲 Kế hoạch (Chat 15) | Google Drive sync — kẹt ràng buộc 3-credential, xử lý lối vòng |
-| Equipment-Aware + Glossary | 🔲 Kế hoạch (Chat 14) | Migration 013 (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`) |
-| Golden Dataset + eval | 🔲 Kế hoạch (Chat 13) | bảng `golden_questions` đã có |
+| **WF-11 Literature Search** | ✅ Import + Active | webhook `literature-search`, 2 chế độ search/ingest, verify Cách B. |
+| **Spike GĐ0 — AI Agent native** | ✅ **ĐẠT** (Chat 08) | Agent + tool-calling chạy trong sandbox; crypto-block KHÔNG đụng đường agent. |
+| **Frontend TypeScript — parity** | ✅ Deploy XANH | 5 trang (dashboard/ai-search/documents/audit/security) + validation tabs + Copilot; F4 XSS đã vá (React escape mặc định). |
+| **WF-12 — lõi trợ lý agentic** | ✅ Active (Chat 11) | AI Agent + tools governed (`rag_search`/`literature`/`calc`) + memory `chat_memory` + Cách B + audit. |
+| **Migration 013→020** | ✅ Applied `bdttccztjtrcaztjgkot` | 013 citation\_grounding · 014 chat\_memory · 015 security\_hardening · 017 equipment\_glossary · 018 seed\_validation · 019 drive\_sync\_log · **020 validation\_sessions** |
+| **Golden Dataset + eval (Chat 13)** | ✅ PASS | 50 câu GMP, migration 016, harness eval đầu-cuối. |
+| **Equipment-Aware + Glossary (Chat 14)** | ✅ Done | Migration 017 (`equipment_glossary`); tab "Tra cứu thuật ngữ" trên ValidationPage. |
+| **WF-10 Google Drive Sync (Chat 16)** | ✅ PASS | googleOAuth2Api "Kết nối drive", HTTP Request multipart, path `/webhook/gmp-upload`; migration 019. |
+| **WF-13 Validation Copilot (Chat 17)** | ✅ **Active** | AI Agent + `rag_search` + `get_template` + `session_messages` append-only + audit; webhook `/copilot-query`; migration 020 applied. |
 
 ---
 
@@ -95,7 +97,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 **Sản phẩm Chat 08:** `SPIKE-AI-Agent.json` · `00-HANDOFF-CRAVE.md` · `KICKOFF-CHAT09.md`.
 
-### ✅ Chat 09 — Dọn nợ credential + đường ống build TypeScript (nền móng) *(chat này)*
+### ✅ Chat 09 — Dọn nợ credential + đường ống build TypeScript (nền móng)
 **1. Dọn nợ credential (soi file thật):** WF-03/04/05/09 mỗi file đúng **1 nhãn `OpenAL`** trên node `REPLACE` → đổi `OpenAL`→`OpenAl` (giữ `id:"REPLACE"`), diff đúng 1 dòng/ file, JSON hợp lệ. **`OpenAL` = 0** ở cả 4. `WF-02 __1_` xác nhận **đã không còn** trong repo (chỉ còn `__2_`, sạch) → DoD "loại `__1_`" đạt ở cấp kho.
 
 **2. Đường ống build TS — đặt trong THƯ MỤC CON `app/`:** để **giữ vanilla nguyên vẹn** ở gốc (vanilla chiếm `index.html` gốc), dự án Vite nằm trong `app/`; chỉ thay `deploy.yml`. Cây: `package.json` + `package-lock.json` (lockfileVersion 3, 187 gói) + `vite.config.ts` (`base:'/Du_bao_thoi_tiet/'`, alias `@`→`src`) + `tsconfig.json` + `tailwind.config.ts` (token **Ice Crystal** qua biến CSS dạng channel `H S% L%` + `/<alpha-value>`) + `postcss.config.js` + `components.json` + `.gitignore` + `src/{main.tsx, App.tsx, index.css, vite-env.d.ts, lib/utils.ts}`. App "hello dashboard" đọc/validate `import.meta.env.VITE_*` (OK / RỖNG / PLACEHOLDER, che anon key).
@@ -105,7 +107,35 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 **4. Nghiệm thu ĐẠT:** build-thử sandbox xanh (34 modules, CSS 9.76kB, JS ~166kB); base/asset = `/Du_bao_thoi_tiet/…`; inject xác nhận (3 giá trị bake vào `dist`, 0 placeholder). **Action #18 Success (23s)**; trang Pages hiển thị hello dashboard với **3 biến OK** (Supabase URL + anon key 208 ký tự + webhook `n8n.cpc1hn.com/webhook`).
 > *Quyết định:* URL live tạm hiển thị hello dashboard; vanilla source ở gốc **nguyên vẹn**, quay lui = revert 1 file `deploy.yml`. Cảnh báo "Node.js 20 deprecated → 24" là runtime của *bản action* (checkout@v4…), KHÔNG đụng build.
 
-**Sản phẩm Chat 09:** `app/` (cây Vite, đã build-thử xanh) · `deploy.yml` (Vite, subfolder) · WF-03/04/05/09 (sạch `OpenAl`) · `00-HANDOFF-CRAVE.md` (bản này) · `KICKOFF-CHAT10.md`.
+**Sản phẩm Chat 09:** `app/` (cây Vite, đã build-thử xanh) · `deploy.yml` (Vite, subfolder) · WF-03/04/05/09 (sạch `OpenAl`) · `CLAUDE.md` · `KICKOFF-CHAT10.md`.
+
+### ✅ Chat 10–16 — Xem git log (tóm lược)
+Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migration 014 `chat_memory`. Chat 12: UI trợ lý + nối WF-12. Chat 13: Governance eval PASS + 50 câu GMP + migration 016. Chat 14: Equipment-Aware + Glossary + migration 017/018 + tab Validation (draft/check/calculate/glossary). Chat 15: skills-as-code, runbook hồi quy. Chat 16: WF-10 Google Drive Sync PASS + migration 019.
+
+### ✅ Chat 17 — Validation Copilot (PHA 1A + 1B + 1C + review + deploy)
+**Bối cảnh:** Codex (GPT-5.5) xây PHA 1A (migration 020) + PHA 1B (WF-13 JSON) trước khi hết quota. PHA 1C (frontend) chưa làm. Claude Code (NHÂN LỰC 2) review PHA 2A → phát hiện 2 FAIL MỀM (JWT hash sub-baseline, PHA 1C thiếu) → PHA 2B sửa đầy đủ.
+
+**PHA 1A — Migration 020:**
+- `validation_sessions`: id/created_by/equipment_code/validation_type/template_id/session_data/status + constraints + trigger `update_updated_at`.
+- `session_messages`: id/session_id/role/content/cited_chunk_ids uuid[]/grounded + constraint `grounded=false OR cardinality>0` + trigger `session_messages_append_only_guard` (BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT).
+- RLS bật; 4 policy ownership bằng `auth.uid()`; DO-block idempotent.
+- `020_down.sql`: DROP session_messages → DROP validation_sessions (đúng thứ tự FK).
+
+**PHA 1B — WF-13 TKTL WF-13 Validation Copilot (18 nodes, ID `TcusASYdTTHaoygD`):**
+- Webhook `/copilot-query` POST + CORS `*`.
+- JWT Cách B qua `?auth=` query param (sub-baseline `b8bed615…`, khác d22a5154 nhưng đúng thiết kế).
+- CONFIG (top_k=8, threshold=0.4, history_limit=20, grounding_threshold_pct=80).
+- Parse + Validate → PG: Prepare Session + History (tạo/nối session, load history) → Embed Query → AI Agent (gpt-4o-mini, 6 iterations) + tools: `rag_search` qua `hybrid_search_v3` + `get_template` qua `validation_templates` → Prepare Response (tính grounded_pct từ claims/citedIds) → PG: Save Messages + Audit (INSERT cả user+assistant, gọi `write_audit_log`) → Respond 200.
+- Credentials: GMP-check (`0WcJFXEhwLXQhJmn`) + OpenAl (`r5CCCyYKeJDjnJ0A`). Không credential thứ 3.
+
+**PHA 1C — Frontend (Claude Code viết):**
+- `app/src/types/api.ts`: thêm `CopilotCitation`, `CopilotQueryRequest`, `CopilotQueryResponse`.
+- `app/src/lib/api.ts`: thêm endpoint `copilotQuery` + `fetchCopilotQuery` (token qua `?auth=` query param, khớp WF-13).
+- `app/src/features/validation/CopilotPanel.tsx`: chat bubble (user phải/assistant trái), badge ✓ Có căn cứ SOP / ⚠ Chưa có căn cứ từ `grounded_pct` server, bảng trích dẫn collapsible, equipment_code + validationType selector, session persistence, 0 `dangerouslySetInnerHTML`.
+- `app/src/features/validation/ValidationPage.tsx`: thêm `type Tab = "copilot"`, import `CopilotPanel`, render tab "Validation Copilot".
+- Build xanh: 81 modules, 0 lỗi tsc.
+
+**Nghiệm thu:** Migration 020 applied (`bdttccztjtrcaztjgkot`): 2 bảng + 4 policy + 2 trigger xác nhận qua MCP. WF-13 active (MCP n8n: `active:true`, 18 nodes, connections intact). Git push commit `9b51546` → 7 file.
 
 ---
 
@@ -120,7 +150,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 | F1 | Frontend nút "chết im" (trùng tên `supabase`) | 🔴 | ✅ ĐÃ SỬA (client → `sb`) |
 | F2 | Cấu hình rỗng (Variables vs Secrets) | 🔴 | ✅ ĐÃ SỬA (deploy.yml dùng `vars.*`) |
 | F3 | SUPABASE_URL thừa `/rest/v1/` | 🟠 | ✅ ĐÃ SỬA (URL gốc) |
-| **F4** | **`app.js` render `innerHTML` không escape (trừ `r.answer`) → stored-XSS** | 🟠 | 🔲 **Vá ở Chat 10** (React escape mặc định) |
+| **F4** | **`app.js` render `innerHTML` không escape (trừ `r.answer`) → stored-XSS** | 🟠 | ✅ **ĐÃ VÁ (Chat 10)** — React escape mặc định; TS app không dùng `dangerouslySetInnerHTML` |
 
 **HOÃN:** `hybrid_search_v3` lọc `'vi'` loại `'vi-en'` — sửa ở **migration 013 (Chat 14)**; không cắn ở chế độ `'any'` mặc định.
 **HOÃN (Chat 07):** WF-11 nạp lại cùng `pmid`/`doi` đụng `UNIQUE(...)` → xử lý `ON CONFLICT`/versioning sau.
@@ -151,19 +181,15 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01 Audit+011 · ✅ 02 WF-02 v3 · ✅ 03 Verify JWT · ✅ 04 Cài thật+WF-01/08 · ✅ 05 Chuỗi duyệt+SOP · ✅ 06 Frontend+Cách B+CORS (chạy đầu-cuối) · ✅ 07 WF-11 Literature · ✅ 08 Tái định phạm vi + spike GĐ0 ĐẠT + kế hoạch 09–15 · ✅ **09 Dọn nợ credential + đường ống build TS (hello dashboard deploy XANH trên Pages)**
+**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ **17 Validation Copilot (WF-13 + migration 020 + CopilotPanel)**
 
-**Kế hoạch chat hệ mới (mỗi chat = 1 mục, validate được, không phá MVP):**
-- **✅ Chat 09 — Dọn nợ + đường ống build TS.** `OpenAL`→`OpenAl` (WF-03/04/05/09); `WF-02 __1_` đã loại; dự án Vite trong `app/` + `deploy.yml` Vite; "hello dashboard" **deploy XANH** trên Pages, inject `VITE_*` OK (3 biến). *(Nền móng, không feature — ĐẠT.)*
-- **🔲 Chat 10 — Khung dashboard TS + parity** *(scaffold đã có ở Chat 09 trong `app/`)*. Thêm shadcn component cần dùng; port `lib/`+`types/` từ `app.js`; port 5 trang (dashboard/ai-search/documents/audit/security) đạt **parity**; **vá XSS (F4)** (React escape mặc định). App vanilla giữ sống tới khi parity.
-- **🔲 Chat 11 — WF-12 lõi trợ lý agentic.** AI Agent + Chat Model `OpenAl` + memory Postgres + tools governed (`rag_search`/`literature`/`calc`, đều qua `hybrid_search_v3`) + verify Cách B + audit. Migration bảng `chat_memory`.
-- **🔲 Chat 12 — UI trợ lý + nối WF-12.** `features/assistant/` (chat, hiển thị tool-call + bảng trích dẫn); endpoint+CORS; chạy đầu-cuối.
-- **🔲 Chat 13 — Governance tường minh + Golden Dataset eval.** Hợp đồng 4 tầng; bộ câu hỏi vàng (`golden_questions`); harness đo retrieval/answer trước–sau.
-- **🔲 Chat 14 — Equipment-Aware + Glossary + công cụ thẩm định.** Migration 013 (`equipment_code` + Glossary + sửa `'vi'` loại `'vi-en'`); WF-03/04/05 lên `features/validation/`.
-- **🔲 Chat 15 — Nguồn dữ liệu + skills-as-code + đóng gói.** WF-10 Drive (lối vòng giữ cred Google ngoài n8n / hoặc hoãn có ghi nhận); prompt versioned ở Postgres; runbook + hồi quy cuối.
+**Đã hoàn thành tất cả mục tiêu đã đặt ra (Chat 09→17). Kế tiếp tùy nhu cầu:**
+- Ingest thêm SOP thật vào hệ thống (RUNBOOK-CHAT05).
+- Tích hợp module Literature Search (WF-11 đã active) vào frontend.
+- Knowledge Graph hoặc Redis Cache (HOÃN dài hạn).
+- Thêm loại thiết bị / template IQ-OQ-PQ mới vào `equipment_registry` + `validation_templates`.
 
-*Linh hoạt:* 09–10 là track frontend, 11–15 nghiêng backend/nghiệp vụ (gần độc lập). Chat ngắn có thể gộp (11+12, hoặc gập 13 vào 14).
-**HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow.
+**HOÃN dài hạn:** Knowledge Graph, Redis Cache, tách WF-02 thành 5 workflow, WF-11 nạp lại ON CONFLICT.
 
 ---
 
@@ -197,7 +223,7 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 | OpenAI runtime | Chỉ từ n8n backend |
 | AI sources | Chỉ `approved_for_ai_use`; **mọi tool agent qua `hybrid_search_v3`** (không SELECT thô) |
 | Audit log | Append-only (INSERT); mỗi lượt trợ lý đều ghi |
-| Migration | 001→010→011 (đã cài) → 012 chỉ khi Plan B → mới = 013 (Chat 14). Cách B/module hoá/TS/agentic không cần migration (trừ bảng `chat_memory` ở Chat 11) |
+| Migration | 001→011 (cài từ đầu) → 013–015, 017–020 applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. Mới tiếp = 021+. |
 | Ngôn ngữ | Tiếng Việt |
 
 ---
@@ -207,8 +233,9 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 - **Frontend vanilla cũ:** `index.html` + `styles.css` + `js/config.js` + `js/app.js` + `deploy.yml` (sed inject `vars.*`). *(Giữ sống tới khi TS đạt parity ở Chat 10.)*
 - **Frontend hệ mới (TS) — trong THƯ MỤC CON `app/`:** `app/{package.json, package-lock.json (lockfileVersion 3, 187 gói), vite.config.ts (base '/Du_bao_thoi_tiet/', alias @→src), tsconfig.json, tailwind.config.ts, postcss.config.js, components.json, .gitignore, src/(main.tsx, App.tsx, index.css, vite-env.d.ts, lib/utils.ts; sẽ thêm types/, hooks/, components/, features/ ở Chat 10)}` + `.github/workflows/deploy.yml` (working-directory `app`; npm ci → vite build → deploy **`app/dist`**, inject `VITE_*`). **Không sửa package.json/lock bằng tay.** App vanilla ở GỐC giữ nguyên.
 - **Bộ workflow:** `WF-01,02(__2_),06,07,08` (Cách B + CORS) + `WF-03,04,05,09` (Cách B) + `WF-11` (ID thật). Bỏ WF-02(__1_).
-- **WF-12** (Chat 11): AI Agent + tools governed + memory Postgres + verify Cách B + audit.
-- **Params verify byte-identical; baseline `d22a5154…cb27759`.**
+- **WF-12** (Chat 11): AI Agent + tools governed + memory Postgres + verify Cách B + audit. ID `DMcZCeYXTFRUyufV`.
+- **WF-13** (Chat 17): Validation Copilot, webhook `/copilot-query`, JWT qua `?auth=` query param. ID `TcusASYdTTHaoygD`. Sub-baseline hash `b8bed615…`.
+- **Params verify byte-identical; baseline `d22a5154…cb27759` (WF-01→09); sub-baseline WF-13 `b8bed615…` (query param variant).**
 - **Repo GitHub Pages chỉ chứa frontend.** Workflow ở n8n, SQL ở Supabase — không đẩy lên GitHub.
 
 *Nguồn sự thật chung. Xuất bản lại & thay thế sau mỗi chat.*
