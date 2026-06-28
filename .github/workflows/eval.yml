@@ -16,6 +16,13 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   eval:
     name: Run FTS Retrieval Eval
@@ -27,13 +34,16 @@ jobs:
             echo "❌ SUPABASE_URL chưa set (Repository Variables)"
             exit 1
           fi
-          if [ -z "${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            echo "❌ SUPABASE_SERVICE_ROLE_KEY chưa set (Repository Variables)"
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "❌ SUPABASE_SERVICE_ROLE_KEY chưa set (Repository Secrets)"
+            echo "   → Xem docs/sop/github-secret-rotation.md để thêm Secret"
             exit 1
           fi
 
       - name: Gọi run_fts_eval_v1() qua Supabase REST
         id: eval_call
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           NOTES="${{ github.event.inputs.notes }}"
           if [ -z "$NOTES" ]; then
@@ -43,8 +53,8 @@ jobs:
           RESPONSE=$(curl -sf \
             -X POST \
             "${{ vars.SUPABASE_URL }}/rest/v1/rpc/run_fts_eval_v1" \
-            -H "apikey: ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "Authorization: Bearer ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
             -d "{\"p_top_k\": ${{ github.event.inputs.top_k }}, \"p_model_tag\": \"${{ github.event.inputs.model_tag }}\", \"p_notes\": \"$NOTES\"}" \
           )

@@ -1,0 +1,90 @@
+name: CI — TypeScript Build & Lint
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "app/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: TypeScript Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: app/package-lock.json
+
+      - name: Kiểm tra Variables bắt buộc
+        run: |
+          if [ -z "${{ vars.SUPABASE_URL }}" ]; then
+            echo "❌ SUPABASE_URL chưa set (Repository Variables)"
+            exit 1
+          fi
+          if [ -z "${{ vars.SUPABASE_ANON_KEY }}" ]; then
+            echo "❌ SUPABASE_ANON_KEY chưa set (Repository Variables)"
+            exit 1
+          fi
+          if [ -z "${{ vars.WEBHOOK_BASE }}" ]; then
+            echo "❌ WEBHOOK_BASE chưa set (Repository Variables)"
+            exit 1
+          fi
+          echo "✅ Tất cả Variables bắt buộc đã set"
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: app
+        run: npx tsc --noEmit
+
+      - name: Vite build (kiểm tra build thành công)
+        working-directory: app
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_WEBHOOK_BASE: ${{ vars.WEBHOOK_BASE }}
+        run: npm run build
+
+      - name: Kiểm tra output không chứa placeholder
+        working-directory: app
+        run: |
+          if grep -r "YOUR_SUPABASE\|PLACEHOLDER\|changeme\|TODO_KEY" dist/ 2>/dev/null; then
+            echo "❌ FAIL: Phát hiện placeholder trong build output"
+            exit 1
+          fi
+          echo "✅ Không có placeholder trong dist/"
+
+      - name: Secret scan — không key thật trong source
+        run: |
+          # Quét pattern service-role key (bắt đầu bằng eyJ dài >200 ký tự)
+          if grep -rE 'eyJ[A-Za-z0-9_-]{200,}' app/src/ 2>/dev/null; then
+            echo "❌ FAIL: Nghi ngờ có JWT/key dài trong source"
+            exit 1
+          fi
+          # Quét Tavily key
+          if grep -rE 'tvly-[A-Za-z0-9]{20,}' app/src/ n8n/ 2>/dev/null; then
+            echo "❌ FAIL: Phát hiện Tavily API key trong source"
+            exit 1
+          fi
+          echo "✅ Secret scan PASS"

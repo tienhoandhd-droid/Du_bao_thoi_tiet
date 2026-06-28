@@ -1,5 +1,9 @@
+> ⚠ **TÀI LIỆU LỊCH SỬ — CHỈ ĐỌC, KHÔNG CẬP NHẬT**
+> Canonical mới: **`nangcap.md`** (kiến trúc) + **`kehoach.md`** (kế hoạch 40 Chat) + **`AGENTS.md`** (hướng dẫn agent)
+> File này lưu lịch sử Chat 01–20. Tham khảo khi cần tra cứu quyết định cũ. Không dùng để điều phối chat mới.
+
 # ❄ HANDOFF — GMP VALIDATION INTELLIGENCE DASHBOARD (Mô hình CRAVE)
-## Tài liệu mốc nối giữa các đoạn chat (master handoff)
+## Tài liệu mốc nối giữa các đoạn chat (master handoff — lịch sử đến Chat 20)
 
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
