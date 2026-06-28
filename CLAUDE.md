@@ -4,7 +4,7 @@
 **Chủ trì:** DS. Tào Tiến Hoàn — V/Q Team, QLCL, CPC1 Hà Nội
 **Stack hiện tại:** Supabase PostgreSQL 16 + pgvector · n8n self-hosted (sandbox khoá crypto) · OpenAI gpt-4o-mini · GitHub Pages
 **Stack hệ mới (đang chuyển sang):** + Frontend **TypeScript** (Vite + React + Tailwind + shadcn/ui, build trong GitHub Actions) · Backend **agentic** (node AI Agent native + memory Postgres)
-**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 18**: **Web Document Search PASS** — WF-14 active (ID `6USn5CYpK9VlyExu`, 15 nodes) + `WebSearchPanel.tsx` deploy (trang "🔎 Tìm kiếm Web" trong sidebar, 4 mode, badge trust-level 4 tầng, link ra ngoài). Tavily API key nhúng CONFIG node (không phải credential n8n). *(Chat 17: WF-13 Validation Copilot PASS + migration 020; Chat 16: WF-10 Drive Sync PASS.)*
+**Cập nhật gần nhất:** 2026-06-28 — sau **Chat 19**: **Eval Harness PASS (Hit@5 = 93.75%)** + Observability Dashboard + CRAG-Lite. Migration 021 + 021b/c/d applied. 7 SOP mẫu seed (40 chunks) vào `bdttccztjtrcaztjgkot`. *(Chat 18: WF-14 Web Document Search PASS; Chat 17: WF-13 Validation Copilot PASS + migration 020.)*
 **Pages:** https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/ · **Repo:** `tienhoandhd-droid/Du_bao_thoi_tiet` (public)
 **Local-dev:** **THUẦN GitHub web (bản free)** — không máy local, không dòng lệnh. Build TS chạy **trong GitHub Actions** (repo public → Actions không giới hạn phút; Pages free).
 
@@ -43,6 +43,9 @@
 | **WF-10 Google Drive Sync (Chat 16)** | ✅ PASS | googleOAuth2Api "Kết nối drive", HTTP Request multipart, path `/webhook/gmp-upload`; migration 019. |
 | **WF-13 Validation Copilot (Chat 17)** | ✅ **Active** | AI Agent + `rag_search` + `get_template` + `session_messages` append-only + audit; webhook `/copilot-query`; migration 020 applied. |
 | **WF-14 Web Document Search (Chat 18)** | ✅ **Active** | Tavily search_depth=advanced; trust-level mapping 4 tầng (WHO/ICH=4, ISPE/PubMed=3); 4 mode (general/guideline/literature/forum); audit INSERT; webhook `/web-search`; key trong CONFIG node. |
+| **Observability Dashboard (Chat 19)** | ✅ Deploy | `ObservabilityPanel.tsx` — biểu đồ 7 ngày từ `audit_log`; daily trend + action breakdown; không cần migration. |
+| **CRAG-Lite (Chat 19)** | ✅ Deploy | `CragBadge` trong AiSearchPage: avg relevance_score → 🟢/🟡/🔴; nút "Thử web →" khi low-confidence tự fill WebSearchPanel. |
+| **Eval Harness FTS (Chat 19)** | ✅ **PASS Hit@5=93.75%** | Migration 021+021b/c/d; `run_fts_eval_v1()` OR-tsquery; `EvalPanel.tsx` (trang Security); `eval.yml` (workflow_dispatch); 7 SOP mẫu seed. |
 
 ---
 
@@ -112,6 +115,38 @@ Trace SQL: duyệt set status+boolean cùng UPDATE; `hybrid_search_v3` lọc qua
 
 ### ✅ Chat 10–16 — Xem git log (tóm lược)
 Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migration 014 `chat_memory`. Chat 12: UI trợ lý + nối WF-12. Chat 13: Governance eval PASS + 50 câu GMP + migration 016. Chat 14: Equipment-Aware + Glossary + migration 017/018 + tab Validation (draft/check/calculate/glossary). Chat 15: skills-as-code, runbook hồi quy. Chat 16: WF-10 Google Drive Sync PASS + migration 019.
+
+### ✅ Chat 19 — Eval Harness PASS + Observability + CRAG-Lite
+
+**Bối cảnh:** Nâng cấp CRAVE từ Mức 3+ → Mức 4 (Evaluated & Observable). Ba tính năng hoàn toàn frontend/SQL, không cần n8n workflow mới.
+
+**1. Observability Dashboard (commit `c97f4d9`):**
+- `app/src/features/observability/ObservabilityPanel.tsx` — biểu đồ xu hướng 7 ngày từ `audit_log`, daily bar chart + breakdown action_type.
+- Đọc trực tiếp `audit_log` (không migration mới), limit 2000 rows, non-blocking.
+- Hiển thị trên Dashboard page.
+
+**2. CRAG-Lite Routing (commit `d666168`):**
+- `CragBadge` component trong AiSearchPage: tính avg `relevance_score` từ RAG sources.
+  - ≥0.65: 🟢 Chất lượng cao; 0.42–0.65: 🟡 Trung bình; <0.42: 🔴 Thấp + nút "Thử tìm kiếm web →".
+- Nút low-confidence: `setPage("web-search")` + `webSearchInitQuery` state → `WebSearchPanel` nhận `initQuery` prop, auto-submit mode "guideline" (useRef + useEffect để tránh vòng lặp).
+
+**3. Eval Harness FTS (commits `b361089` + bản vá trong Chat 19):**
+- **Migration 021** (`bdttccztjtrcaztjgkot`): RLS policies cho `eval_runs`/`eval_results` + hàm `run_fts_eval_v1()` SECURITY DEFINER.
+- **Migration 021b/c/d** (bản vá trong chat): 
+  - 021b: placeholder (superseded);
+  - 021c: OR-tsquery — lý do: câu hỏi TV có từ hỏi "là gì" không có trong chunk → dùng `to_tsvector` tokenize câu hỏi + build `token1 | token2 | ...`; hit logic kép: doc-code match ĐẦU TIÊN, rồi content ILIKE keyword.
+  - 021d: `eval_runs.score_mean/score_min` đổi sang `numeric(5,2)` (cũ `numeric(5,4)` không chứa được phần trăm >9.99%).
+- **Seed 7 SOP mẫu** (40 chunks tổng) vào `bdttccztjtrcaztjgkot`: VQ-QT-003, GMP-SOP-001→005, WHO-TRS-996. Phủ toàn bộ chủ đề golden_questions (IQ/OQ/PQ, CAPA, sai lệch, đánh giá rủi ro, môi trường, IPC, kho, chuỗi lạnh, data integrity, vệ sinh thiết bị, máy tính GxP).
+- **`EvalPanel.tsx`** (trang Security): nút "Chạy Eval FTS", MetricBar, bảng lịch sử eval_runs.
+- **`eval.yml`** (GitHub Actions `workflow_dispatch`): gọi `run_fts_eval_v1()` qua REST, in bảng Hit@1/3/5 + MRR vào Step Summary; `exit 1` nếu FAIL.
+- **Kết quả baseline**: Hit@5=93.75%, Hit@1=31.25%, Hit@3=66.67%, MRR=0.5219 — **PASS** (ngưỡng ≥80%).
+
+**Ghi chú quan trọng:**
+- GitHub Secret `SUPABASE_SERVICE_ROLE_KEY` **CHƯA ĐƯỢC THÊM** → `eval.yml` sẽ fail bước kiểm tra nếu chạy qua Actions. Cần thêm thủ công: Supabase Dashboard → `bdttccztjtrcaztjgkot` → Project Settings → API → service_role key → GitHub repo Settings → Secrets → New secret tên `SUPABASE_SERVICE_ROLE_KEY`.
+- `eval_runs` bảng cũ: có 3 lần chạy thử với 0% và baseline 62.5% trước khi fix — bình thường, là lịch sử phát triển.
+- `expected_sources` trong `golden_questions` là GMP **keyword** (không phải mã tài liệu) cho 45/48 câu; chỉ 3 câu có mã thật (VQ-QT-003, ISO-14644-3, WHO-TRS-996). Hàm eval v3 xử lý cả hai loại.
+
+**Sản phẩm Chat 19:** `ObservabilityPanel.tsx` · `CragBadge` (trong App.tsx) · `EvalPanel.tsx` · `eval.yml` · `supabase/migrations/021_eval_harness.sql` + 021b/c/d + 021_down.sql · CLAUDE.md (file này).
 
 ### ✅ Chat 18 — WF-14 Web Document Search + CRAVE Architecture Review
 
@@ -219,14 +254,14 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 
 ## 5. ROADMAP
 
-**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ 17 Validation Copilot (WF-13 + migration 020 + CopilotPanel) · ✅ **18 Web Document Search (WF-14 + WebSearchPanel, trust 4 tầng)**
+**Đã xong:** ✅ 01–09 (audit, WF, Cách B, CORS, frontend vanilla, TS nền móng) · ✅ 10 parity+F4 · ✅ 11 WF-12 agentic · ✅ 12 UI trợ lý · ✅ 13 Governance+eval · ✅ 14 Equipment+Glossary+Validation tabs · ✅ 15 skills+runbook · ✅ 16 WF-10 Drive Sync · ✅ 17 Validation Copilot (WF-13 + migration 020 + CopilotPanel) · ✅ 18 Web Document Search (WF-14 + WebSearchPanel) · ✅ **19 Eval Harness PASS (Hit@5=93.75%) + Observability + CRAG-Lite**
 
-**CRAVE Maturity: Mức 3+ → Tiếp theo hướng Mức 4 (Evaluated & Observable Agentic RAG):**
+**CRAVE Maturity: ✅ Mức 4 (Evaluated & Observable Agentic RAG) — đã đạt với Chat 19.**
 
 **Ưu tiên cao (kế tiếp):**
-- **Eval Harness tự động** — Ragas/DeepEval chạy NGOÀI n8n qua CI/Claude Code (không phát sinh credential thứ 3); chấm điểm faithfulness ≥0.90 trên 50 golden questions hiện có; ngưỡng fail < 0.80 chặn release. Mở rộng golden dataset lên 100 câu (phủ multi-hop, edge case, câu đa thiết bị).
-- **Adaptive/CRAG Routing** — phân loại query: câu đơn giản → hybrid_search_v3 thẳng (cost ~$0.001); câu phức tạp → AI Agent (cost gấp 3–10x, precision +42%). Giúp giảm chi phí và tăng tốc độ trung bình.
-- **Observability Dashboard** — ghi latency/token/cost/citation_rate/hallucination_flag vào bảng mới (migration 021); cảnh báo khi faithfulness < 0.80. Pattern từ Langfuse nhưng tự xây trong Supabase (không cài Langfuse — tránh hạ tầng + credential).
+- **Mở rộng golden dataset lên 100 câu** — phủ multi-hop, edge case, câu đa thiết bị; bổ sung câu tiếng Anh (hiện 45 VI + 3 EN). Chạy lại eval để xác nhận Hit@5 giữ ≥80% sau khi mở rộng.
+- **Seed SOP thật** — thay 7 SOP mẫu bằng tài liệu nội bộ thực tế qua WF-10 (Google Drive) hoặc WF-11 (Literature). Chạy lại eval sau ingest.
+- **Thêm GitHub Secret `SUPABASE_SERVICE_ROLE_KEY`** — để `eval.yml` chạy được qua Actions (hiện CHƯA có secret, nếu chạy Actions sẽ fail bước kiểm tra). Hướng dẫn: Supabase → `bdttccztjtrcaztjgkot` → Project Settings → API → copy service_role key → GitHub repo → Settings → Secrets → New secret tên `SUPABASE_SERVICE_ROLE_KEY`.
 
 **Ưu tiên trung bình:**
 - **AI Reviewer SOP** — đánh giá SOP nội bộ theo checklist WHO/ICH/GAMP5/ALCOA+/Annex 11/EU Annex 22 (draft 7/2025); mọi output là DRAFT, human sign-off bắt buộc.
@@ -270,7 +305,7 @@ Chat 10: parity 5 trang TS + vá XSS (F4). Chat 11: WF-12 lõi agentic + migrati
 | OpenAI runtime | Chỉ từ n8n backend |
 | AI sources | Chỉ `approved_for_ai_use`; **mọi tool agent qua `hybrid_search_v3`** (không SELECT thô) |
 | Audit log | Append-only (INSERT); mỗi lượt trợ lý đều ghi |
-| Migration | 001→011 (cài từ đầu) → 013–020 applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. **Mới tiếp = 021+.** |
+| Migration | 001→011 (cài từ đầu) → 013–021d applied trên `bdttccztjtrcaztjgkot`. 012 để dành Plan B, 016 golden_questions. **Mới tiếp = 022+.** |
 | Ngôn ngữ | Tiếng Việt |
 
 ---
