@@ -16,6 +16,8 @@ import type {
   DraftProtocolResponse,
   RagQueryRequest,
   RagQueryResponse,
+  WebSearchRequest,
+  WebSearchResponse,
 } from "@/types/api";
 
 export const WEBHOOK_BASE = normalizeBaseUrl(getPublicEnv().webhookBase);
@@ -31,6 +33,7 @@ export const apiEndpoints = {
   checkProtocol: buildWebhookUrl("/check-protocol"),
   calculateReport: buildWebhookUrl("/calculate-report"),
   copilotQuery: buildWebhookUrl("/copilot-query"),
+  webSearch: buildWebhookUrl("/web-search"),
 } as const;
 
 export type ApiEndpointKey = keyof typeof apiEndpoints;
@@ -198,6 +201,19 @@ export async function fetchCopilotQuery(
     );
   }
   return parseJson<CopilotQueryResponse>(response);
+}
+
+export async function fetchWebSearch(
+  body: WebSearchRequest,
+  token: string,
+  signal?: AbortSignal,
+): Promise<WebSearchResponse> {
+  return apiCall<WebSearchResponse>("webSearch", {
+    method: "POST",
+    body,
+    token,
+    signal,
+  });
 }
 
 export type { AuditEntry };

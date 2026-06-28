@@ -234,3 +234,32 @@ export interface CopilotQueryResponse {
   grounded_pct?: number;
   error?: string;
 }
+
+export type WebSearchMode = "general" | "guideline" | "literature" | "forum";
+
+export interface WebSearchRequest {
+  query: string;
+  search_mode?: WebSearchMode;
+  include_domains?: string[];
+  max_results?: number;
+}
+
+export interface WebSearchResult {
+  rank: number;
+  title: string;
+  url: string;
+  content: string;
+  relevance_score: number;
+  published_date: string | null;
+  trust_level: number;
+  trust_badge: string;
+  source_domain: string;
+}
+
+export interface WebSearchResponse {
+  results?: WebSearchResult[];
+  total?: number;
+  query?: string;
+  search_mode?: string;
+  error?: string;
+}
