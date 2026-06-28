@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiError, fetchWebSearch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { WebSearchResult, WebSearchMode } from "@/types/api";
@@ -19,52 +19,54 @@ const TRUST_LEVEL_INFO: Record<number, { color: string; border: string }> = {
 
 export function WebSearchPanel({
   token,
+  initQuery,
   onUnauthorized,
 }: {
   token: string;
+  initQuery?: string;
   onUnauthorized: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<WebSearchMode>("general");
+  const [query, setQuery] = useState(initQuery ?? "");
+  const [mode, setMode] = useState<WebSearchMode>("guideline");
   const [results, setResults] = useState<WebSearchResult[]>([]);
   const [searchMeta, setSearchMeta] = useState<{ query: string; total: number; mode: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const lastInitRef = useRef("");
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setError("Vui lòng nhập từ khóa tìm kiếm.");
-      return;
-    }
-    if (trimmed.length > 2000) {
-      setError("Từ khóa quá dài (tối đa 2000 ký tự).");
-      return;
-    }
-
+  async function doSearch(q: string, searchMode: WebSearchMode) {
     setLoading(true);
     setError("");
     setResults([]);
     setSearchMeta(null);
-
     try {
-      const data = await fetchWebSearch({ query: trimmed, search_mode: mode, max_results: 10 }, token);
+      const data = await fetchWebSearch({ query: q, search_mode: searchMode, max_results: 10 }, token);
       setResults(data.results ?? []);
-      setSearchMeta({
-        query: data.query ?? trimmed,
-        total: data.total ?? 0,
-        mode: data.search_mode ?? mode,
-      });
+      setSearchMeta({ query: data.query ?? q, total: data.total ?? 0, mode: data.search_mode ?? searchMode });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        onUnauthorized();
-        return;
-      }
+      if (err instanceof ApiError && err.status === 401) { onUnauthorized(); return; }
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Auto-fill + search when parent passes initQuery (CRAG redirect from AI Search)
+  useEffect(() => {
+    const q = initQuery?.trim() ?? "";
+    if (!q || q === lastInitRef.current) return;
+    lastInitRef.current = q;
+    setQuery(q);
+    void doSearch(q, "guideline");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initQuery]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; }
+    if (trimmed.length > 2000) { setError("Từ khóa quá dài (tối đa 2000 ký tự)."); return; }
+    await doSearch(trimmed, mode);
   }
 
   return (

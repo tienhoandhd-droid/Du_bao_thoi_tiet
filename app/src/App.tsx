@@ -304,6 +304,7 @@ export default function App() {
   const [securityRunning, setSecurityRunning] = useState(false);
 
   const [observabilityRows, setObservabilityRows] = useState<ObservabilityRow[]>([]);
+  const [webSearchInitQuery, setWebSearchInitQuery] = useState("");
 
   const token = session?.access_token ?? "";
 
@@ -719,6 +720,7 @@ export default function App() {
           result={queryResult}
           error={queryError}
           token={token}
+          onWebSearch={(q) => { setWebSearchInitQuery(q); setPage("web-search"); }}
         />
       ) : null}
 
@@ -738,7 +740,11 @@ export default function App() {
       ) : null}
 
       {page === "web-search" ? (
-        <WebSearchPanel token={token} onUnauthorized={() => void handleLogout()} />
+        <WebSearchPanel
+          token={token}
+          initQuery={webSearchInitQuery}
+          onUnauthorized={() => void handleLogout()}
+        />
       ) : null}
 
       {page === "audit" ? (
@@ -1009,6 +1015,50 @@ function Shell({
   );
 }
 
+function CragBadge({
+  sources,
+  query,
+  onWebSearch,
+}: {
+  sources?: RagQueryResponse["sources"];
+  query: string;
+  onWebSearch: (q: string) => void;
+}) {
+  if (!sources?.length) return null;
+
+  const avg = sources.reduce((s, r) => s + (r.relevance_score ?? 0), 0) / sources.length;
+  const level = avg >= 0.65 ? "high" : avg >= 0.42 ? "medium" : "low";
+
+  if (level === "high") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+        🟢 CRAG: Nguồn SOP khớp tốt ({avg.toFixed(2)})
+      </span>
+    );
+  }
+  if (level === "medium") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+        🟡 CRAG: Nguồn khớp một phần ({avg.toFixed(2)})
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+        🔴 CRAG: Ít nguồn SOP phù hợp ({avg.toFixed(2)})
+      </span>
+      <button
+        type="button"
+        onClick={() => onWebSearch(query)}
+        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/15"
+      >
+        🔎 Thử tìm kiếm web →
+      </button>
+    </span>
+  );
+}
+
 function DashboardPage({
   data,
   loading,
@@ -1123,6 +1173,7 @@ function AiSearchPage({
   onDocTypeChange,
   onSubmit,
   token,
+  onWebSearch,
 }: {
   query: string;
   lang: string;
@@ -1135,6 +1186,7 @@ function AiSearchPage({
   onDocTypeChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   token: string;
+  onWebSearch: (query: string) => void;
 }) {
   return (
     <>
@@ -1187,6 +1239,7 @@ function AiSearchPage({
               <Badge className={confidenceClass(result.confidence)}>
                 {result.confidence || "UNKNOWN"}
               </Badge>
+              <CragBadge sources={result.sources} query={query} onWebSearch={onWebSearch} />
             </div>
 
             {result.conflict_warning ? (
