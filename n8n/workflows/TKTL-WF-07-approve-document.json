@@ -1,0 +1,431 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "07",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "KFvOoabtnptFghSy",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "8f2d714c-48eb-4d00-8316-7fae6f40007f",
+      "activeVersionId": "8f2d714c-48eb-4d00-8316-7fae6f40007f",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-24T05:50:37.258Z",
+      "updatedAt": "2026-06-27T11:25:57.251Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Get Roles",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Update Status",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "KFvOoabtnptFghSy",
+  "name": "TKTL WF-07 Approve Document",
+  "active": false,
+  "versionId": "8f2d714c-48eb-4d00-8316-7fae6f40007f",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approve-document",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a4de182b-73d1-4a17-83fb-964d23bc0a90",
+      "name": "Webhook Approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        912,
+        1088
+      ],
+      "webhookId": "approve-document"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse + decode JWT\nconst headers = $('Webhook Approve').first().json.headers || {};\nconst body = $('Webhook Approve').first().json.body || {};\n\nconst authHeader = headers.authorization || headers.Authorization || '';\nconst token = authHeader.replace('Bearer ', '');\nif (!token) return [{ json: { error: true, message: 'Thiếu token', status: 401 } }];\n\nlet userId = null;\ntry {\n  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());\n  userId = payload.sub;\n  if (!userId) throw new Error('Không có user ID');\n} catch (e) {\n  return [{ json: { error: true, message: 'Token không hợp lệ', status: 401 } }];\n}\n\nif (!body.document_id) {\n  return [{ json: { error: true, message: 'Thiếu document_id', status: 400 } }];\n}\n\nreturn [{ json: {\n  error: false,\n  user_id: userId,\n  document_id: body.document_id,\n  action: body.action || 'approve',\n  notes: body.notes || ''\n}}];"
+      },
+      "id": "5f83f0c4-4b6d-4876-b70b-1bbc35acf296",
+      "name": "Parse + JWT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "475b048b-e03f-4222-9839-cea2528f6545",
+      "name": "OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "9c89b6ac-ad6b-4fd3-9f8d-6d626fa8e229",
+      "name": "Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1::uuid AND ur.is_active = true",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "8bbfe3f9-4526-4f2c-825f-7330a7ba9260",
+      "name": "PG: Get Roles",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1808,
+        1232
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chỉ qa_manager hoặc admin mới được duyệt\nconst roles = $input.all().map(item => item.json.role_name);\nconst prevData = $('Parse + JWT').first().json;\n\nif (!roles.some(r => ['admin', 'qa_manager'].includes(r))) {\n  return [{ json: { error: true, message: 'Chỉ QA Manager hoặc Admin mới được duyệt tài liệu cho AI', status: 403 } }];\n}\n\n// Map action → new_status\nconst statusMap = {\n  'approve': 'approved_for_ai_use',\n  'review': 'reviewed',\n  'supersede': 'superseded',\n  'archive': 'archived',\n  'reject': 'indexed'\n};\nconst newStatus = statusMap[prevData.action] || 'approved_for_ai_use';\n\nreturn [{ json: {\n  ...prevData,\n  primary_role: roles[0],\n  new_status: newStatus,\n  approve_sql: `SELECT update_document_status('${prevData.document_id}'::uuid, '${newStatus}'::document_status, '${prevData.user_id}'::uuid, '${roles[0]}');`\n}}];"
+      },
+      "id": "9b1d142f-0f5f-4b9e-96fe-4fa0a5751b77",
+      "name": "Check QA Permission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f0f77009-3baf-45e3-89a7-08bf022cd869",
+      "name": "QA OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "869116d8-506e-4236-ab41-e24fd4085e09",
+      "name": "QA Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2480,
+        1136
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.approve_sql }}",
+        "options": {}
+      },
+      "id": "55ef35c6-b780-4b08-8376-07f503f3fc7e",
+      "name": "PG: Update Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2480,
+        1328
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, document_id: $('Check QA Permission').first().json.document_id, new_status: $('Check QA Permission').first().json.new_status, message: 'Tài liệu đã được cập nhật trạng thái thành công.' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "ba83c2df-f705-4240-bc0f-a7d802402158",
+      "name": "Approve Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2704,
+        1328
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        1088
+      ],
+      "id": "75a6d408-7fe5-4590-ab11-c1d44a6b84c9",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        944
+      ],
+      "id": "6f5c55b5-39f4-48e5-8305-d0757c66403d",
+      "name": "Auth 401"
+    }
+  ],
+  "connections": {
+    "Webhook Approve": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + JWT": {
+      "main": [
+        [
+          {
+            "node": "OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OK?": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Get Roles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Get Roles": {
+      "main": [
+        [
+          {
+            "node": "Check QA Permission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check QA Permission": {
+      "main": [
+        [
+          {
+            "node": "QA OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA OK?": {
+      "main": [
+        [
+          {
+            "node": "QA Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Update Status": {
+      "main": [
+        [
+          {
+            "node": "Approve Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + JWT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

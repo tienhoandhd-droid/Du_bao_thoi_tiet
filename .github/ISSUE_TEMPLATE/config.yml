@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Báo sự cố bảo mật riêng tư
+    url: https://github.com/tienhoandhd-droid/Du_bao_thoi_tiet/security/advisories/new
+    about: Không công khai secret, token hoặc dữ liệu GMP trong issue.

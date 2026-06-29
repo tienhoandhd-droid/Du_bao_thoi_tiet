@@ -1,0 +1,498 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "05",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "CPh7Z1g4EwyOrVo0",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "1a3919c5-59cb-4127-a09e-6460084b991a",
+      "activeVersionId": "1a3919c5-59cb-4127-a09e-6460084b991a",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-24T05:48:25.683Z",
+      "updatedAt": "2026-06-27T11:25:54.950Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Load Formula + Prompt",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "tracked-repo-source-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Interpret",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "tracked-repo-source-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "PG: Save Job + Audit",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "tracked-repo-source-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "CPh7Z1g4EwyOrVo0",
+  "name": "TKTL WF-05 Calculation Helper",
+  "active": false,
+  "versionId": "1a3919c5-59cb-4127-a09e-6460084b991a",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calculate-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ade29660-9a1b-4bd8-824b-c7d6664fa13a",
+      "name": "Webhook Calc",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        704,
+        144
+      ],
+      "webhookId": "calculate-report"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers=$('Webhook Calc').first().json.headers||{};const body=$('Webhook Calc').first().json.body||{};\nconst token=(headers.authorization||headers.Authorization||'').replace('Bearer ','');\nif(!token) return [{json:{error:true,message:'Thiếu token',status:401}}];\nlet userId;try{userId=JSON.parse(Buffer.from(token.split('.')[1],'base64').toString()).sub;if(!userId)throw 0;}catch(e){return [{json:{error:true,message:'Token không hợp lệ',status:401}}];}\nif(!body.formula_code) return [{json:{error:true,message:'Thiếu formula_code',status:400}}];\nif(!/^[A-Za-z0-9\\-_\\.]{1,50}$/.test(body.formula_code)) return [{json:{error:true,message:'formula_code không hợp lệ (chỉ A-Z, a-z, 0-9, -, _, .)',status:400}}];\nif(!body.input_data) return [{json:{error:true,message:'Thiếu input_data',status:400}}];\nreturn [{json:{error:false,user_id:userId,formula_code:body.formula_code,input_data:body.input_data,job_name:body.job_name||'',acceptance_criteria:body.acceptance_criteria||null}}];"
+      },
+      "id": "3a138e89-ee87-41ad-9322-73cfa852beef",
+      "name": "Parse + Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7cc9229b-1669-40ad-b92d-32c587d02143",
+      "name": "OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": "={{ $json.status||400 }}"
+        }
+      },
+      "id": "f7e1fc8c-4f55-4984-a4ae-26086b0afbdb",
+      "name": "Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM calculation_formulas WHERE formula_code='{{ $json.formula_code }}' AND is_active=true ORDER BY version DESC LIMIT 1;\nSELECT prompt_text FROM prompt_versions WHERE prompt_name='calculation_reviewer' AND is_active=true LIMIT 1;",
+        "options": {}
+      },
+      "id": "c3607d1e-5c75-44a6-a36f-f603adfaa04d",
+      "name": "PG: Load Formula + Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1600,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Chạy tính toán DETERMINISTIC (không AI)\n// ========================================\nconst results=$input.all().map(i=>i.json);\nconst prev=$('Parse + Auth').first().json;\nconst formula=results.find(r=>r.formula_code);\nconst prompt=results.find(r=>r.prompt_text);\n\nif(!formula) return [{json:{error:true,message:'Không tìm thấy công thức: '+prev.formula_code,status:404}}];\n\n// Parse input data\nconst inputData=typeof prev.input_data==='string'?JSON.parse(prev.input_data):prev.input_data;\n\n// Chạy công thức bằng JavaScript (deterministic)\nlet calcResult=null;\nlet calcError=null;\nlet steps=[];\n\ntry {\n  // Tạo variables từ input_data\n  const vars={};\n  for(const[k,v]of Object.entries(inputData)) vars[k]=v;\n  \n  // Thêm tất cả input vars vào scope\n  const fn=new Function(...Object.keys(vars),'return '+formula.formula_js);\n  calcResult=fn(...Object.values(vars));\n  \n  steps.push({step:'Input',detail:JSON.stringify(inputData)});\n  steps.push({step:'Công thức',detail:formula.formula_display});\n  steps.push({step:'JS expression',detail:formula.formula_js});\n  steps.push({step:'Kết quả',detail:String(calcResult)});\n} catch(e) {\n  calcError='Lỗi tính toán: '+e.message;\n}\n\nif(calcError) return [{json:{error:true,message:calcError,status:500}}];\n\n// Đánh giá pass/fail nếu có criteria\nlet passFail='no_criteria';\nlet criteriaNote='';\nif(prev.acceptance_criteria){\n  const ac=typeof prev.acceptance_criteria==='string'?JSON.parse(prev.acceptance_criteria):prev.acceptance_criteria;\n  if(ac.operator==='<='&&calcResult<=ac.value) passFail='pass';\n  else if(ac.operator==='>='&&calcResult>=ac.value) passFail='pass';\n  else if(ac.operator==='<'&&calcResult<ac.value) passFail='pass';\n  else if(ac.operator==='>'&&calcResult>ac.value) passFail='pass';\n  else if(ac.operator==='=='&&calcResult==ac.value) passFail='pass';\n  else passFail='fail';\n  criteriaNote=`Tiêu chí: ${ac.operator} ${ac.value} ${ac.unit||''} (Nguồn: ${ac.source||'N/A'})`;\n}\n\n// Build AI interpretation request\nconst messages=[{role:'system',content:prompt?.prompt_text||'Diễn giải kết quả tính toán GMP bằng tiếng Việt.'},{role:'user',content:`Công thức: ${formula.formula_name} (${formula.formula_code} v${formula.version})\\nHiển thị: ${formula.formula_display}\\nNguồn: ${formula.reference_source||'N/A'}\\n\\nInput: ${JSON.stringify(inputData)}\\nKết quả: ${calcResult}\\n${criteriaNote?'\\n'+criteriaNote+'\\nKết luận: '+(passFail==='pass'?'ĐẠT':passFail==='fail'?'KHÔNG ĐẠT':'Chưa có tiêu chí'):'\\nChưa có tiêu chí chấp nhận đã phê duyệt.'}\\n\\nHãy diễn giải kết quả này bằng tiếng Việt.`}];\n\nreturn [{json:{...prev,formula_name:formula.formula_name,formula_version:formula.version,formula_display:formula.formula_display,reference_source:formula.reference_source,calcResult,steps,passFail,criteriaNote,messages}}];"
+      },
+      "id": "9bbe0507-c1b9-44d6-8427-2d8e82afc2a4",
+      "name": "Run Calculation + Build AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "555c5231-75ec-4de2-9ea7-c929a66d7f0f",
+      "name": "Calc OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:false,error:$json.message}) }}",
+        "options": {
+          "responseCode": "={{ $json.status||500 }}"
+        }
+      },
+      "id": "e44a2924-84d1-4630-9347-eb9a752654f7",
+      "name": "Calc Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'gpt-4o-mini',messages:$json.messages,temperature:0.1,max_tokens:1000}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "cf52a973-e641-48a0-a45f-5314ff2eb182",
+      "name": "OpenAI: Interpret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2272,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ai=$input.first().json;\nconst prev=$('Run Calculation + Build AI').first().json;\nconst interpretation=ai.choices?.[0]?.message?.content||'Không diễn giải được.';\n\nconst sql=`INSERT INTO calculation_jobs(user_id,formula_code,formula_version,job_name,status,input_data,result_data,intermediate_steps,interpretation,acceptance_criteria,pass_fail,model_used) VALUES('${prev.user_id}'::uuid,'${prev.formula_code}','${prev.formula_version}','${(prev.job_name||'').replace(/'/g,\"''\")}','completed','${JSON.stringify(prev.input_data).replace(/'/g,\"''\")}'::jsonb,'{\"result\":${prev.calcResult}}'::jsonb,'${JSON.stringify(prev.steps).replace(/'/g,\"''\")}'::jsonb,'${interpretation.replace(/'/g,\"''\")}',${prev.acceptance_criteria?\"'\"+JSON.stringify(prev.acceptance_criteria).replace(/'/g,\"''\")+\"'::jsonb\":'NULL'},'${prev.passFail}','gpt-4o-mini') RETURNING id;\\nSELECT write_audit_log('${prev.user_id}'::uuid,NULL,NULL,'ai_calculate'::audit_action,'Calc ${prev.formula_code}: ${prev.calcResult}');`;\n\nreturn [{json:{sql,response:{success:true,formula:prev.formula_name,formula_code:prev.formula_code,formula_version:prev.formula_version,formula_display:prev.formula_display,reference_source:prev.reference_source,input:prev.input_data,result:prev.calcResult,steps:prev.steps,pass_fail:prev.passFail,criteria_note:prev.criteriaNote,interpretation,disclaimer:'⚕ Diễn giải do AI thực hiện. Cần người có chuyên môn xác nhận trước khi đưa vào hồ sơ GMP.'}}}];"
+      },
+      "id": "604dfc91-eda0-49fd-88f6-6e2af0424cd4",
+      "name": "Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "id": "6358340f-05d2-42ac-b214-58646c7ad685",
+      "name": "PG: Save Job + Audit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2720,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Format Result').first().json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a7d80c2f-bb68-4aab-ba16-1f11eee53866",
+      "name": "Calc Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        144
+      ],
+      "id": "f42b3271-c915-4fc0-8789-c5e5031736d1",
+      "name": "🔐 Verify JWT",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        0
+      ],
+      "id": "9f5e6d18-a757-4025-8d9c-02f2f1aaca17",
+      "name": "Auth 401"
+    }
+  ],
+  "connections": {
+    "Webhook Calc": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Auth": {
+      "main": [
+        [
+          {
+            "node": "OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OK?": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG: Load Formula + Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Load Formula + Prompt": {
+      "main": [
+        [
+          {
+            "node": "Run Calculation + Build AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Calculation + Build AI": {
+      "main": [
+        [
+          {
+            "node": "Calc OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calc OK?": {
+      "main": [
+        [
+          {
+            "node": "Calc Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI: Interpret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Interpret": {
+      "main": [
+        [
+          {
+            "node": "Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Result": {
+      "main": [
+        [
+          {
+            "node": "PG: Save Job + Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Save Job + Audit": {
+      "main": [
+        [
+          {
+            "node": "Calc Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Parse + Auth",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth 401": {
+      "main": [
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

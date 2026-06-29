@@ -1,0 +1,198 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "08",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "5wwaxP51FgeXuDi3",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "821c2f84-221c-4bae-a6d3-c881c8b0aa20",
+      "activeVersionId": "821c2f84-221c-4bae-a6d3-c881c8b0aa20",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-11T11:09:55.703Z",
+      "updatedAt": "2026-06-26T15:21:12.730Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Get Stats",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI: Check API",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "5wwaxP51FgeXuDi3",
+  "name": "TKTL WF-08 Health Monitor",
+  "active": false,
+  "versionId": "821c2f84-221c-4bae-a6d3-c881c8b0aa20",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "health",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "09258279-5983-4089-9960-33c617d3566b",
+      "name": "Webhook Health",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        688
+      ],
+      "webhookId": "health"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT 'supabase_ok' as check_name, (SELECT count(*) FROM system_config)::text as result UNION ALL SELECT 'total_documents', (SELECT count(*) FROM documents)::text UNION ALL SELECT 'sop_count', (SELECT count(*) FROM documents WHERE document_type = 'sop')::text UNION ALL SELECT 'guideline_count', (SELECT count(*) FROM documents WHERE document_type = 'guideline')::text UNION ALL SELECT 'form_count', (SELECT count(*) FROM documents WHERE document_type IN ('form', 'template'))::text UNION ALL SELECT 'docs_vi', (SELECT count(*) FROM documents WHERE language_code = 'vi')::text UNION ALL SELECT 'docs_en', (SELECT count(*) FROM documents WHERE language_code = 'en')::text UNION ALL SELECT 'docs_bilingual', (SELECT count(*) FROM documents WHERE language_code = 'vi-en')::text UNION ALL SELECT 'docs_draft', (SELECT count(*) FROM documents WHERE status = 'draft')::text UNION ALL SELECT 'docs_indexed', (SELECT count(*) FROM documents WHERE status = 'indexed')::text UNION ALL SELECT 'docs_pending_review', (SELECT count(*) FROM documents WHERE status = 'reviewed')::text UNION ALL SELECT 'docs_approved', (SELECT count(*) FROM documents WHERE status = 'approved_for_ai_use')::text UNION ALL SELECT 'ai_translations_pending', (SELECT count(*) FROM documents WHERE is_ai_translated = true AND translation_status = 'ai_translation_draft')::text UNION ALL SELECT 'total_chunks', (SELECT count(*) FROM document_chunks)::text UNION ALL SELECT 'total_ai_queries', (SELECT count(*) FROM ai_queries)::text UNION ALL SELECT 'pending_jobs', (SELECT count(*) FROM ingest_jobs WHERE status = 'pending')::text UNION ALL SELECT 'failed_jobs', (SELECT count(*) FROM ingest_jobs WHERE status = 'failed')::text UNION ALL SELECT 'total_users', (SELECT count(*) FROM user_profiles WHERE is_active = true)::text UNION ALL SELECT 'security_events', (SELECT count(*) FROM security_events WHERE resolved = false AND severity IN ('warning', 'critical'))::text;",
+        "options": {}
+      },
+      "id": "7f5d1749-2738-449f-971b-34833c282f5e",
+      "name": "PG: Get Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        112,
+        688
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/models",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a7eaf8d3-5313-4658-8677-7d4e90cbccee",
+      "name": "OpenAI: Check API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        688
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// Tổng hợp health report\n// ========================================\n\n// Lấy kết quả OpenAI check\nconst openaiResult = $input.first().json;\nconst openaiOk = !!(openaiResult.data || openaiResult.object);\n\n// Lấy kết quả Postgres stats\nconst pgResults = $('PG: Get Stats').all().map(item => item.json);\n\nconst stats = {};\npgResults.forEach(row => {\n  if (row.check_name) {\n    stats[row.check_name] = parseInt(row.result) || 0;\n  }\n});\n\n// Build health report\nconst health = {\n  timestamp: new Date().toISOString(),\n  overall: 'healthy',\n  services: {\n    supabase: {\n      status: pgResults.length > 0 ? 'healthy' : 'error',\n      message: pgResults.length > 0 ? 'Kết nối thành công' : 'Không kết nối được'\n    },\n    openai: {\n      status: openaiOk ? 'healthy' : 'error',\n      message: openaiOk ? 'API hoạt động' : 'Không kết nối được OpenAI'\n    },\n    n8n: {\n      status: 'healthy',\n      message: 'Workflow đang chạy'\n    }\n  },\n  stats: {\n    total_documents: stats.total_documents || 0,\n    sop_count: stats.sop_count || 0,\n    guideline_count: stats.guideline_count || 0,\n    form_count: stats.form_count || 0,\n    docs_vi: stats.docs_vi || 0,\n    docs_en: stats.docs_en || 0,\n    docs_bilingual: stats.docs_bilingual || 0,\n    docs_draft: stats.docs_draft || 0,\n    docs_indexed: stats.docs_indexed || 0,\n    docs_pending_review: stats.docs_pending_review || 0,\n    docs_approved: stats.docs_approved || 0,\n    ai_translations_pending: stats.ai_translations_pending || 0,\n    total_chunks: stats.total_chunks || 0,\n    total_ai_queries: stats.total_ai_queries || 0,\n    pending_jobs: stats.pending_jobs || 0,\n    failed_jobs: stats.failed_jobs || 0,\n    total_users: stats.total_users || 0,\n    unresolved_security_events: stats.security_events || 0\n  },\n  warnings: []\n};\n\n// Detect warnings\nif (stats.failed_jobs > 0) health.warnings.push('Có ' + stats.failed_jobs + ' ingest job bị lỗi');\nif (stats.docs_pending_review > 5) health.warnings.push('Có ' + stats.docs_pending_review + ' tài liệu chờ review');\nif (stats.ai_translations_pending > 0) health.warnings.push('Có ' + stats.ai_translations_pending + ' bản dịch AI chưa duyệt');\nif (stats.security_events > 0) {\n  health.warnings.push('Có ' + stats.security_events + ' sự kiện bảo mật chưa xử lý');\n  health.overall = 'warning';\n}\nif (!openaiOk) health.overall = 'degraded';\nif (pgResults.length === 0) health.overall = 'error';\n\nreturn [{ json: health }];"
+      },
+      "id": "b4187da2-4111-4dfe-aaae-20956b4aef04",
+      "name": "Build Health Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "c8655d9d-918c-461a-b34a-98cc28b9eda5",
+      "name": "Health Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        832,
+        688
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Health": {
+      "main": [
+        [
+          {
+            "node": "PG: Get Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Get Stats": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Check API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Check API": {
+      "main": [
+        [
+          {
+            "node": "Build Health Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Health Report": {
+      "main": [
+        [
+          {
+            "node": "Health Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

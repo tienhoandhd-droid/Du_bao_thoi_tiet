@@ -1,0 +1,655 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "12",
+    "provenance": {
+      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "DMcZCeYXTFRUyufV",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "8d6c7110-f951-49e7-a238-e81520aeaa57",
+      "activeVersionId": "8d6c7110-f951-49e7-a238-e81520aeaa57",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-27T11:44:42.481Z",
+      "updatedAt": "2026-06-27T21:13:13.459Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
+    ],
+    "credentialBindings": [
+      {
+        "node": "Load Memory",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "Embed Query",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "OpenAI Chat Model",
+        "type": "openAiApi",
+        "name": "OpenAl",
+        "id": "r5CCCyYKeJDjnJ0A",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "rag_search",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "literature_lookup",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "Save Memory User",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "Save Memory Assistant",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "Audit INSERT",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "DMcZCeYXTFRUyufV",
+  "name": "TKTL WF-12 - Loi tro ly QA agentic",
+  "active": false,
+  "versionId": "8d6c7110-f951-49e7-a238-e81520aeaa57",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assistant-query",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "3a519560-b912-4f16-8246-2ea773be2e4d",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        208
+      ],
+      "webhookId": "1ed2cbc6-f5f5-4b13-918b-5fe74c64ed4b"
+    },
+    {
+      "parameters": {
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($json.body?.token ?? $json.token ?? '') }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "2e8d14c2-c4c6-40f4-afb0-9fdee5a27fb0",
+      "name": "Verify JWT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        208
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8f318a4e-fcb8-4d9d-8d54-0bc2b9d88a4f",
+      "name": "Auth Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(jsonb_agg(jsonb_build_object('role', recent.role, 'content', recent.content) ORDER BY recent.created_at ASC), '[]'::jsonb) AS memory\nFROM (\n  SELECT role, content, created_at\n  FROM public.chat_memory\n  WHERE session_id = $1::uuid\n    AND user_id = $2::uuid\n  ORDER BY created_at DESC\n  LIMIT 10\n) AS recent;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $('Webhook').item.json.body?.session_id ?? $('Webhook').item.json.session_id, $('Verify JWT').item.json.id ] }}"
+        }
+      },
+      "id": "5072b63e-bfe9-4ffd-9406-f0a46cbf203f",
+      "name": "Load Memory",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        672,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"text-embedding-3-small\", input: $(\"Webhook\").first().json.body?.query ?? $(\"Webhook\").first().json.query ?? \"\" }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "c222793f-ec92-46c7-b592-5d38bd08a3f6",
+      "name": "Embed Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        896,
+        112
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Câu hỏi hiện tại:\n{{ $(\"Webhook\").item.json.body?.query ?? $(\"Webhook\").item.json.query }}\n\nLịch sử hội thoại (cũ đến mới, tối đa 10 bản ghi):\n{{ JSON.stringify($(\"Load Memory\").first().json.memory ?? []) }}",
+        "options": {
+          "systemMessage": "Bạn là trợ lý QA thẩm định dược GMP của CPC1 Hà Nội. Trả lời chính xác dựa trên tài liệu đã được phê duyệt. Luôn trích dẫn document_code và tên tài liệu nguồn.\n\nCông cụ được phép:\n- rag_search: tra cứu tài liệu GMP/SOP đã phê duyệt.\n- literature_lookup: tra cứu nguồn literature đã phê duyệt.\n- calc: chỉ tính biểu thức số học đơn giản.\n\nVới câu hỏi nghiệp vụ, phải dùng rag_search hoặc literature_lookup trước khi trả lời. Không tự tạo nguồn. Nếu không tìm thấy bằng chứng, nói rõ chưa có thông tin trong tài liệu được phê duyệt.",
+          "maxIterations": 6,
+          "returnIntermediateSteps": true,
+          "passthroughBinaryImages": false
+        }
+      },
+      "id": "7f1a230e-2f3d-4453-bdf6-e13059873098",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1248,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "maxTokens": 1200,
+          "temperature": 0.1,
+          "timeout": 60000,
+          "maxRetries": 2
+        }
+      },
+      "id": "6ffc2b61-622a-4bba-968a-dd61f5b8b759",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        336
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "r5CCCyYKeJDjnJ0A",
+          "name": "OpenAl"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM public.hybrid_search_v3(\n  p_query_embedding := $3::vector,\n  p_query_text := $1::text,\n  p_match_threshold := 0.4,\n  p_match_count := 8,\n  p_user_id := $2::uuid\n);",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $fromAI('query', 'Từ khóa hoặc câu hỏi cần tra cứu trong tài liệu GMP đã phê duyệt', 'string'), $('Verify JWT').item.json.id, $('Embed Query').first()?.json?.data?.[0]?.embedding ? JSON.stringify($('Embed Query').first().json.data[0].embedding) : null ] }}"
+        }
+      },
+      "id": "3cd09b58-27fc-43eb-9d11-1a2f3879f31a",
+      "name": "rag_search",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1248,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM public.hybrid_search_v3(\n  p_query_embedding := $3::vector,\n  p_query_text := $1::text,\n  p_match_threshold := 0.35,\n  p_match_count := 5,\n  p_user_id := $2::uuid,\n  p_source_category := 'literature'\n);",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $fromAI('query', 'Từ khóa hoặc câu hỏi cần tra cứu trong nguồn literature đã phê duyệt', 'string'), $('Verify JWT').item.json.id, $('Embed Query').first()?.json?.data?.[0]?.embedding ? JSON.stringify($('Embed Query').first().json.data[0].embedding) : null ] }}"
+        }
+      },
+      "id": "29caf499-1da9-4eb5-b495-603fe35274f9",
+      "name": "literature_lookup",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1376,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Chi tinh cac bieu thuc so hoc don gian gom so, dau ngoac va + - * / %.",
+        "jsCode": "const raw = typeof query === 'string' ? query : query?.expression;\nconst expression = String(raw ?? '').trim();\nif (!expression || expression.length > 200) throw new Error('Bieu thuc phai co tu 1 den 200 ky tu.');\nif (!/^[0-9eE+\\-*/%().\\s]+$/.test(expression)) throw new Error('Chi cho phep so, dau ngoac va cac toan tu + - * / %.');\nconst tokens = expression.match(/(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+\\-]?\\d+)?|[()+\\-*/%]/g) ?? [];\nif (tokens.join('') !== expression.replace(/\\s+/g, '')) throw new Error('Bieu thuc so hoc khong hop le.');\nlet position = 0;\nconst peek = () => tokens[position];\nconst take = () => tokens[position++];\nfunction parsePrimary() {\n  const token = take();\n  if (token === '(') { const value = parseExpression(); if (take() !== ')') throw new Error('Thieu dau ngoac dong.'); return value; }\n  const value = Number(token);\n  if (!Number.isFinite(value)) throw new Error('So khong hop le.');\n  return value;\n}\nfunction parseUnary() {\n  if (peek() === '+') { take(); return parseUnary(); }\n  if (peek() === '-') { take(); return -parseUnary(); }\n  return parsePrimary();\n}\nfunction parseTerm() {\n  let value = parseUnary();\n  while (['*', '/', '%'].includes(peek())) {\n    const operator = take(); const right = parseUnary();\n    if ((operator === '/' || operator === '%') && right === 0) throw new Error('Khong the chia cho 0.');\n    if (operator === '*') value *= right;\n    if (operator === '/') value /= right;\n    if (operator === '%') value %= right;\n  }\n  return value;\n}\nfunction parseExpression() {\n  let value = parseTerm();\n  while (['+', '-'].includes(peek())) {\n    const operator = take(); const right = parseTerm();\n    value = operator === '+' ? value + right : value - right;\n  }\n  return value;\n}\nconst result = parseExpression();\nif (position !== tokens.length || !Number.isFinite(result)) throw new Error('Bieu thuc so hoc khong hop le.');\nreturn JSON.stringify({ expression, result });",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"expression\":{\"type\":\"string\",\"description\":\"Bieu thuc so hoc don gian can tinh\"}},\"required\":[\"expression\"],\"additionalProperties\":false}"
+      },
+      "id": "878ca9a8-c055-41b0-afd4-733947e23ebd",
+      "name": "calc",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const agent = $input.first().json;\nconst answer = String(agent.output ?? '');\nfunction parseValue(value) {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return value; }\n}\nfunction collectSources(value, target) {\n  const parsed = parseValue(value);\n  if (Array.isArray(parsed)) { for (const entry of parsed) collectSources(entry, target); return; }\n  if (!parsed || typeof parsed !== 'object') return;\n  const candidate = parsed.json && typeof parsed.json === 'object' ? parsed.json : parsed;\n  if (candidate.chunk_id || candidate.document_code) { target.push(candidate); return; }\n  for (const nested of Object.values(parsed)) collectSources(nested, target);\n}\nconst sources = [];\nfor (const step of agent.intermediateSteps ?? []) {\n  const toolName = String(step?.action?.tool ?? step?.tool ?? '').toLowerCase();\n  if (toolName === 'rag_search' || toolName.includes('rag_search') || toolName === 'literature_lookup' || toolName.includes('literature_lookup')) {\n    collectSources(step?.observation ?? step?.output ?? step?.result, sources);\n  }\n}\nconst uniqueByKey = new Map();\nfor (const source of sources) {\n  const key = String(source.chunk_id ?? [source.document_code, source.page_number, source.section_code].join(':'));\n  if (!uniqueByKey.has(key)) uniqueByKey.set(key, source);\n}\nconst uniqueSources = [...uniqueByKey.values()];\nconst webhook = $('Webhook').first().json;\nconst request = webhook.body ?? webhook;\nconst memory = $('Load Memory').first().json.memory ?? [];\nconst historyText = JSON.stringify(memory);\nconst tokensUsed = Math.ceil((String(request.query ?? '').length + historyText.length + answer.length) / 4);\nreturn [{ json: { answer, sources: uniqueSources, session_id: String(request.session_id ?? ''), tokens_used: tokensUsed, sources_count: uniqueSources.length } }];"
+      },
+      "id": "16b074ab-a056-4632-96e4-de4be455e0f3",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.chat_memory (session_id, role, content, tokens_used, user_id)\nVALUES ($1::uuid, 'user', $2::text, 0, $3::uuid)\nRETURNING id;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $('Webhook').item.json.body?.session_id ?? $('Webhook').item.json.session_id, $('Webhook').item.json.body?.query ?? $('Webhook').item.json.query, $('Verify JWT').item.json.id ] }}"
+        }
+      },
+      "id": "25937e0b-2de1-4012-9759-ce638dc80795",
+      "name": "Save Memory User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1936,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.chat_memory (session_id, role, content, tokens_used, user_id)\nVALUES ($1::uuid, 'assistant', $2::text, $3::integer, $4::uuid)\nRETURNING id;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $('Prepare Response').item.json.session_id, $('Prepare Response').item.json.answer, $('Prepare Response').item.json.tokens_used, $('Verify JWT').item.json.id ] }}"
+        }
+      },
+      "id": "d777e61d-909d-4449-bb68-701281e8b136",
+      "name": "Save Memory Assistant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2160,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH save_query AS (\n  INSERT INTO public.ai_queries (\n    user_id, session_id, query_text, answer_text, model_used, tokens_used, filters\n  )\n  VALUES (\n    $1::uuid, $2::text, $3::text, $4::text, 'gpt-4o-mini', $5::integer,\n    jsonb_build_object('user_email', $6::text, 'sources_count', $7::integer)\n  )\n  RETURNING id\n)\nSELECT\n  public.write_audit_log(\n    p_user_id      := $1::uuid,\n    p_user_email   := $6::text,\n    p_user_role    := 'authenticated',\n    p_action_type  := 'ai_query'::public.audit_action,\n    p_input_summary := left($3::text, 500),\n    p_model_used   := 'gpt-4o-mini',\n    p_session_id   := $2::text,\n    p_details      := jsonb_build_object('sources_count', $7::integer, 'tokens_used', $5::integer)\n  ) AS audit_log_id,\n  (SELECT id FROM save_query) AS ai_query_id;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $('Verify JWT').item.json.id, $('Prepare Response').item.json.session_id, $('Webhook').item.json.body?.query ?? $('Webhook').item.json.query, $('Prepare Response').item.json.answer, $('Prepare Response').item.json.tokens_used, $('Verify JWT').item.json.email ?? '', $('Prepare Response').item.json.sources_count ] }}"
+        }
+      },
+      "id": "c4cd1c53-90db-4087-9f2c-be3cb914c5c2",
+      "name": "Audit INSERT",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2384,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { answer: $('Prepare Response').item.json.answer, sources: $('Prepare Response').item.json.sources, session_id: $('Prepare Response').item.json.session_id, tokens_used: $('Prepare Response').item.json.tokens_used } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "340f22cd-a0ea-48bf-9bfa-77f476203f3c",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2608,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"error\":\"Auth 401\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "5f6d6e15-14f2-4c2f-9f41-265f26cf1e43",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Auth Gate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Gate": {
+      "main": [
+        [
+          {
+            "node": "Load Memory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Memory": {
+      "main": [
+        [
+          {
+            "node": "Embed Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Query": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rag_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "literature_lookup": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calc": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Save Memory User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Memory User": {
+      "main": [
+        [
+          {
+            "node": "Save Memory Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Memory Assistant": {
+      "main": [
+        [
+          {
+            "node": "Audit INSERT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit INSERT": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "tags": [],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

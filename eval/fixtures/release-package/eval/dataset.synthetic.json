@@ -1,0 +1,11 @@
+{
+  "fixtureOnly": true,
+  "version": "1.0.0",
+  "questions": [
+    {
+      "id": "synthetic-001",
+      "question": "Câu hỏi giả dùng cho kiểm thử manifest?",
+      "expected": "Dữ liệu giả."
+    }
+  ]
+}

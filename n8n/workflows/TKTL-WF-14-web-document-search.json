@@ -1,0 +1,592 @@
+{
+  "_crave_meta": {
+    "schemaVersion": 1,
+    "workflowNumber": "14",
+    "provenance": {
+      "source": "n8n live qua MCP sau remediation được phê duyệt",
+      "capturedAt": "2026-06-29",
+      "liveWorkflowId": "6USn5CYpK9VlyExu",
+      "graphSource": "activeVersion",
+      "priorLocalFileStatus": "untracked; không có commit/PR provenance",
+      "credentialBindingNote": "n8n MCP sanitize credential material; CRAVE-Tavily binding được xác minh qua UI và positive executions, source chỉ lưu reference ID/name."
+    },
+    "liveState": {
+      "published": true,
+      "draftVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+      "activeVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+      "draftPublishedDrift": false,
+      "createdAt": "2026-06-28T08:15:06.696Z",
+      "updatedAt": "2026-06-29T00:30:33.007Z"
+    },
+    "redactions": [
+      "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__",
+      "Tavily key nằm trong credential CRAVE-Tavily; MCP không xuất credential material"
+    ],
+    "credentialBindings": [
+      {
+        "node": "PG: Audit INSERT",
+        "type": "postgres",
+        "name": "GMP-check",
+        "id": "0WcJFXEhwLXQhJmn",
+        "evidence": "preexisting-untracked-binding-plus-live-node-match",
+        "liveMcpBindingVisible": false
+      },
+      {
+        "node": "🌐 Tavily Search",
+        "type": "httpHeaderAuth",
+        "name": "CRAVE-Tavily",
+        "id": "J0X44B6qW4UYBaOc",
+        "evidence": "n8n UI binding verified + positive execution 1451310",
+        "liveMcpBindingVisible": false
+      }
+    ]
+  },
+  "id": "6USn5CYpK9VlyExu",
+  "name": "TKTL WF-14 Web Document Search",
+  "active": false,
+  "versionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+  "nodes": [
+    {
+      "id": "7878cdc2-890b-4fa2-b05e-6c06b71c2638",
+      "name": "🔍 Webhook Web Search",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web-search",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "2fd123c8-4a74-4d0f-8edb-dbc1f75c1475"
+    },
+    {
+      "id": "559c7d53-16b2-424d-920a-da7993dc1968",
+      "name": "🔐 Verify JWT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($json.headers.authorization || '').replace(/^bearer /i, '') }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "0405f401-24b2-4f04-a7db-a6e2394e68c3",
+      "name": "Auth OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-user-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "6fff0265-7dc8-454e-99dd-f12e6d77ede6",
+      "name": "CONFIG",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        96
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-max-results",
+              "name": "max_results",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "cfg-snippet-max",
+              "name": "snippet_max",
+              "value": 800,
+              "type": "number"
+            },
+            {
+              "id": "cfg-max-query",
+              "name": "max_query_length",
+              "value": 2000,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "1590ea20-93eb-47ec-b34c-62a8a60a5237",
+      "name": "Parse + Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const request = $('🔍 Webhook Web Search').first().json;\nconst verifiedUser = $('🔐 Verify JWT').first().json;\nconst body = request.body || {};\nconst cfg = $input.first().json;\nconst query = typeof body.query === 'string' ? body.query.trim() : '';\nconst searchMode = typeof body.search_mode === 'string' ? body.search_mode.trim() : 'general';\nconst rawDomains = Array.isArray(body.include_domains) ? body.include_domains : [];\nconst maxResults = Math.min(typeof body.max_results === 'number' ? body.max_results : Number(cfg.max_results || 10), 20);\nif (!query) return [{ json: { error: true, status: 400, message: 'Thiếu query' } }];\nif (query.length > Number(cfg.max_query_length || 2000)) return [{ json: { error: true, status: 400, message: 'query vượt quá độ dài cho phép' } }];\nconst modePresets = {\n  guideline: ['who.int','ich.org','picscheme.org','ema.europa.eu','fda.gov','hsa.gov.sg','moh.gov.vn','dav.gov.vn','ispe.org','pda.org'],\n  literature: ['ncbi.nlm.nih.gov','pubmed.ncbi.nlm.nih.gov','europepmc.org'],\n  forum: [], general: []\n};\nconst validModes = Object.keys(modePresets);\nconst mode = validModes.includes(searchMode) ? searchMode : 'general';\nconst domains = rawDomains.length > 0 ? rawDomains : (modePresets[mode] || []);\nreturn [{ json: { error: false, user_id: String(verifiedUser.id || ''), user_email: String(verifiedUser.email || ''), query, search_mode: mode, include_domains: domains, max_results: maxResults, snippet_max: Number(cfg.snippet_max || 800) } }];"
+      }
+    },
+    {
+      "id": "8121c24a-2fdd-4525-99a7-b0efa0c7467f",
+      "name": "Input Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "input-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "2f89c8a3-cac1-4d1d-ba3e-c7a7dc11de3e",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.message || 'Yêu cầu không hợp lệ', results: [], total: 0 } }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "0db0de68-178e-4cb5-873c-0ee9008f7600",
+      "name": "Prepare Tavily Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst body = { query: d.query, search_depth: 'advanced', include_answer: false, include_raw_content: false, max_results: d.max_results, topic: 'general' };\nif (d.include_domains && d.include_domains.length > 0) body.include_domains = d.include_domains;\nreturn [{ json: { ...d, tavily_body: JSON.stringify(body) } }];"
+      }
+    },
+    {
+      "id": "e9984d50-bd56-4651-b2af-bb7be11cf2c0",
+      "name": "🌐 Tavily Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        192
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.parse($json.tavily_body) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "J0X44B6qW4UYBaOc",
+          "name": "CRAVE-Tavily"
+        }
+      }
+    },
+    {
+      "id": "b554b94e-778f-4c48-b653-858cdecc29fd",
+      "name": "Search OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        192
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ Array.isArray($json.results) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "412c1c4b-f481-4381-b7d6-98c2b69b0372",
+      "name": "⚡ Process Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parsed = $('Parse + Validate').first().json;\nconst raw = $input.first().json;\nconst results = Array.isArray(raw.results) ? raw.results : [];\nconst snippetMax = Number(parsed.snippet_max || 800);\nconst trustConfig = [\n  { level: 4, badge: '🔵 Cơ quan quản lý', domains: ['who.int','ich.org','picscheme.org','ema.europa.eu','fda.gov','hsa.gov.sg','moh.gov.vn','dav.gov.vn','tga.gov.au','pmda.go.jp'] },\n  { level: 3, badge: '🟢 Tổ chức uy tín',  domains: ['ispe.org','pda.org','usp.org','edqm.eu','ncbi.nlm.nih.gov','pubmed.ncbi.nlm.nih.gov','europepmc.org','pharmaceutical-technology.com'] },\n  { level: 2, badge: '🟡 Chuyên ngành',    domains: ['drugs.com','rxlist.com','webmd.com','medscape.com','pharmacytimes.com'] }\n];\nfunction getTrust(url) {\n  try {\n    const host = new URL(url).hostname.replace(/^www\\./, '');\n    for (const tier of trustConfig) {\n      if (tier.domains.some(d => host === d || host.endsWith('.' + d))) return { trust_level: tier.level, trust_badge: tier.badge, source_domain: host };\n    }\n    return { trust_level: 1, trust_badge: '⚪ Nguồn khác', source_domain: host };\n  } catch { return { trust_level: 1, trust_badge: '⚪ Nguồn khác', source_domain: '' }; }\n}\nconst enriched = results.map((r, i) => ({ rank: i + 1, title: String(r.title || ''), url: String(r.url || ''), content: String(r.content || '').slice(0, snippetMax), relevance_score: Number(r.score || 0), published_date: r.published_date || null, ...getTrust(r.url || '') }));\nenriched.sort((a, b) => b.trust_level !== a.trust_level ? b.trust_level - a.trust_level : b.relevance_score - a.relevance_score);\nenriched.forEach((r, i) => { r.rank = i + 1; });\nreturn [{ json: { results: enriched, total: enriched.length, query: parsed.query, search_mode: parsed.search_mode, user_id: parsed.user_id, user_email: parsed.user_email } }];"
+      }
+    },
+    {
+      "id": "ea0b7329-097d-437d-82f1-e2821bf11f18",
+      "name": "PG: Audit INSERT",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2240,
+        96
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.write_audit_log(\n  p_user_id       := $1::uuid,\n  p_user_email    := $2::text,\n  p_user_role     := 'authenticated',\n  p_action_type   := 'ai_query'::public.audit_action,\n  p_input_summary := left($3::text, 500),\n  p_model_used    := 'tavily-web',\n  p_details       := jsonb_build_object('feature','web_search','search_mode',$4::text,'results_count',$5::integer)\n) AS audit_log_id;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $json.user_id, $json.user_email, $json.query, $json.search_mode, $json.total ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "0WcJFXEhwLXQhJmn",
+          "name": "GMP-check"
+        }
+      }
+    },
+    {
+      "id": "5000e1fb-865c-45b5-a7c3-ebebc7c4de24",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2464,
+        96
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { results: $('⚡ Process Results').first().json.results, total: $('⚡ Process Results').first().json.total, query: $('⚡ Process Results').first().json.query, search_mode: $('⚡ Process Results').first().json.search_mode } }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "3399b482-1d47-4b8b-a6e1-0236eee61f81",
+      "name": "Backend Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2016,
+        288
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Web search tạm thời không xử lý được. Vui lòng thử lại.', results: [], total: 0 } }}",
+        "options": {
+          "responseCode": 502,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "af65d8da-88b1-443c-98fd-ca1d155f6a44",
+      "name": "Auth 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        288
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn', results: [], total: 0 } }}",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "🔍 Webhook Web Search": {
+      "main": [
+        [
+          {
+            "node": "🔐 Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Auth OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth OK?": {
+      "main": [
+        [
+          {
+            "node": "CONFIG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIG": {
+      "main": [
+        [
+          {
+            "node": "Parse + Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Validate": {
+      "main": [
+        [
+          {
+            "node": "Input Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Error?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Tavily Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Tavily Body": {
+      "main": [
+        [
+          {
+            "node": "🌐 Tavily Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 Tavily Search": {
+      "main": [
+        [
+          {
+            "node": "Search OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search OK?": {
+      "main": [
+        [
+          {
+            "node": "⚡ Process Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Backend Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚡ Process Results": {
+      "main": [
+        [
+          {
+            "node": "PG: Audit INSERT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG: Audit INSERT": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "tags": [],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

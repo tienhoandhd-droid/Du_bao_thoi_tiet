@@ -1,0 +1,54 @@
+{
+  "manifestVersion": "1.0.0",
+  "releaseId": "crave-fixture-001",
+  "generatedAt": "2026-06-29T00:00:00Z",
+  "project": "CRAVE GMP Validation Intelligence Platform — SYNTHETIC FIXTURE",
+  "git": {
+    "sha": "0123456789abcdef0123456789abcdef01234567",
+    "branch": "fixture/release-guard"
+  },
+  "supabase": {
+    "projectId": "bdttccztjtrcaztjgkot",
+    "currentMigrationVersion": "001",
+    "migrations": [
+      {
+        "version": "001",
+        "up": "supabase/migrations/001_example.sql",
+        "down": "supabase/rollbacks/001_example_down.sql",
+        "upSha256": "0c67145e10476b5b6f32dbebcf1ae92b3c1a5eb73b7de24c939a16398b02bfaf",
+        "downSha256": "fbb1f2b032ce694c1f2a048261313bcf8e17f2dadbeccab8e0556986824ebf09"
+      }
+    ]
+  },
+  "n8n": {
+    "expectedWorkflowCount": 1,
+    "workflows": [
+      {
+        "workflowNumber": "01",
+        "id": "fixture-workflow-id",
+        "activeVersionId": "11111111-1111-4111-8111-111111111111",
+        "file": "n8n/workflows/TKTL-WF-01-fixture.json",
+        "sha256": "f1005d6c03b08721d3627dc1a9706370e21a752ab3768cc104cd0dea10bb6924"
+      }
+    ]
+  },
+  "prompts": [
+    {
+      "key": "fixture-prompt",
+      "version": "1.0.0",
+      "file": "prompts/fixture-prompt/v1.0.0.md",
+      "sha256": "8b936734384eee09e787de1efe4740288365b41d0bac8459f67bea71a2c7090e"
+    }
+  ],
+  "model": {
+    "provider": "Example Provider",
+    "name": "synthetic-model",
+    "version": "fixture-2026-06-29"
+  },
+  "dataset": {
+    "name": "synthetic-release-dataset",
+    "version": "1.0.0",
+    "file": "eval/dataset.synthetic.json",
+    "sha256": "bf99f78c08db6c32647d7c9beed8f49cf93815a69b6c4465b2752d196388af59"
+  }
+}
