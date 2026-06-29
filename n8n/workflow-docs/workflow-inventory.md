@@ -2,7 +2,7 @@
 
 **Thời điểm chụp:** 2026-06-29 · **Chế độ:** chỉ đọc · **Phạm vi:** đúng TKTL WF-01…WF-14
 
-JSON canonical trong `n8n/workflows/` đại diện cho **activeVersion đang chạy**, không phải draft chưa publish. Mỗi file đặt `active: false` để import không tự kích hoạt. So sánh graph bỏ qua trường `credentials` vì MCP sanitize trường này và chuẩn hóa đúng hai placeholder secret đã ghi trong manifest.
+JSON canonical trong `n8n/workflows/` đại diện cho **activeVersion đang chạy**, không phải draft chưa publish. Mỗi file đặt `active: false` để import không tự kích hoạt. MCP sanitize credential material; source chỉ giữ credential reference đã được phân loại evidence và redaction Supabase anon key.
 
 | WF | ID live | Published | Draft version | Active version | Node/cạnh | Webhook | JWT Cách B | Kết quả |
 |---|---|---:|---|---|---:|---|---|---|
@@ -19,7 +19,7 @@ JSON canonical trong `n8n/workflows/` đại diện cho **activeVersion đang ch
 | 11 | `yrLN2Y5tEC8jJwGR` | Có | `bad508fe-756e-42e5-b6e5-19786d97e6f8` | `bad508fe-756e-42e5-b6e5-19786d97e6f8` | 23/25 | `POST literature-search` | PASS | MATCHED_ACTIVE_GRAPH |
 | 12 | `DMcZCeYXTFRUyufV` | Có | `8d6c7110-f951-49e7-a238-e81520aeaa57` | `8d6c7110-f951-49e7-a238-e81520aeaa57` | 16/16 | `POST assistant-query` | PASS | MATCHED_ACTIVE_GRAPH |
 | 13 | `TcusASYdTTHaoygD` | Có | `ce4f4ce7-731e-4e95-8fc1-e0ba83816315` | `ce4f4ce7-731e-4e95-8fc1-e0ba83816315` | 18/23 | `POST copilot-query` | PASS | MATCHED_ACTIVE_GRAPH |
-| 14 | `6USn5CYpK9VlyExu` | Có | `f432217d-c329-45cd-90a7-2a0055719549` | `70afe9fe-2325-4413-a1b1-860f0c05cb2f` | 15/14 | `POST web-search` | FAIL (thiếu onError) | KNOWN_LIVE_DRIFT |
+| 14 | `6USn5CYpK9VlyExu` | Có | `4f2f07d4-da78-4196-a70a-80510ac6fbd2` | `4f2f07d4-da78-4196-a70a-80510ac6fbd2` | 15/14 | `POST web-search` | PASS | MATCHED_ACTIVE_GRAPH |
 
 ## WF-01 — TKTL WF-01 Document Ingest
 
@@ -669,10 +669,10 @@ JSON canonical trong `n8n/workflows/` đại diện cho **activeVersion đang ch
 
 - File: `n8n/workflows/TKTL-WF-14-web-document-search.json`
 - ID: `6USn5CYpK9VlyExu`
-- Version: draft `f432217d-c329-45cd-90a7-2a0055719549`; active `70afe9fe-2325-4413-a1b1-860f0c05cb2f`
+- Version: draft `4f2f07d4-da78-4196-a70a-80510ac6fbd2`; active `4f2f07d4-da78-4196-a70a-80510ac6fbd2`
 - Webhook: `POST /webhook/web-search`
-- Credential binding trong export: `PG: Audit INSERT → GMP-check`
-- JWT: GET `/auth/v1/user`, token từ header, apikey=có (đã redaction), onError=thiếu
+- Credential binding trong export: `PG: Audit INSERT → GMP-check`, `🌐 Tavily Search → CRAVE-Tavily` (`httpHeaderAuth`, credential material không export)
+- JWT: GET `/auth/v1/user`, token từ header, apikey=có (đã redaction), `onError=continueErrorOutput`
 
 ### Node graph active
 

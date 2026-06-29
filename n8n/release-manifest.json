@@ -4,15 +4,15 @@
   "scope": "TKTL WF-01..WF-14 only",
   "capturedAt": "2026-06-29",
   "git": {
-    "branch": "main",
-    "head": "c951b01",
-    "originComparison": "ahead origin/main 2 commits",
-    "remoteMutationPerformed": false
+    "branch": "chat-04/reconcile-tktl-workflows",
+    "head": "7ddb730",
+    "originComparison": "PR #3 open; remediation update pending commit",
+    "remoteMutationPerformed": true
   },
   "n8n": {
     "instance": "https://n8n.cpc1hn.com",
-    "readOnlyCapture": true,
-    "liveMutationPerformed": false,
+    "readOnlyCapture": false,
+    "liveMutationPerformed": true,
     "workflowCount": 14,
     "allPublished": true,
     "credentialVisibility": "MCP sanitized; binding evidence is explicitly classified per node"
@@ -20,12 +20,11 @@
   "redactionPolicy": {
     "secretsStored": false,
     "placeholders": [
-      "__REDACTED_SUPABASE_ANON_KEY__",
-      "__REDACTED_TAVILY_API_KEY__"
+      "__REDACTED_SUPABASE_ANON_KEY__"
     ],
     "credentialIdsAreReferencesNotSecrets": true
   },
-  "overallStatus": "READY_FOR_GITHUB_APPROVAL_WITH_KNOWN_LIVE_FINDINGS",
+  "overallStatus": "READY_FOR_GITHUB_REVIEW_LIVE_REMEDIATION_PASS",
   "workflows": [
     {
       "workflowNumber": "01",
@@ -1010,13 +1009,13 @@
       "id": "6USn5CYpK9VlyExu",
       "name": "TKTL WF-14 Web Document Search",
       "file": "workflows/TKTL-WF-14-web-document-search.json",
-      "fileSha256": "d3a6834b8087ef73e5fb7d5fd32064a026dff3ce1de024dc465b341f5d2b22a6",
+      "fileSha256": "e158077eaf85132fbdb635d21a6e94b2b3d58dbdef37a5c9c616cc1454224b07",
       "live": {
         "published": true,
-        "draftVersionId": "f432217d-c329-45cd-90a7-2a0055719549",
-        "activeVersionId": "70afe9fe-2325-4413-a1b1-860f0c05cb2f",
-        "draftPublishedDrift": true,
-        "updatedAt": "2026-06-28T08:26:01.168Z"
+        "draftVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+        "activeVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+        "draftPublishedDrift": false,
+        "updatedAt": "2026-06-29T00:30:33.007Z"
       },
       "export": {
         "represents": "activeVersion",
@@ -1037,8 +1036,8 @@
           "hasAuthorization": true,
           "hasApikey": true,
           "tokenSource": "header",
-          "onError": null,
-          "compliant": false
+          "onError": "continueErrorOutput",
+          "compliant": true
         },
         "credentialBindings": [
           {
@@ -1048,19 +1047,28 @@
             "id": "0WcJFXEhwLXQhJmn",
             "evidence": "preexisting-untracked-binding-plus-live-node-match",
             "liveMcpBindingVisible": false
+          },
+          {
+            "node": "🌐 Tavily Search",
+            "type": "httpHeaderAuth",
+            "name": "CRAVE-Tavily",
+            "id": "J0X44B6qW4UYBaOc",
+            "evidence": "n8n UI binding verified + positive execution 1451310",
+            "liveMcpBindingVisible": false
           }
         ],
         "redactions": [
           "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__",
-          "Tavily literal secret -> __REDACTED_TAVILY_API_KEY__"
+          "Tavily key nằm trong credential CRAVE-Tavily; credential material không export"
         ]
       },
       "reconciliation": {
-        "status": "KNOWN_LIVE_DRIFT",
+        "status": "MATCHED_ACTIVE_GRAPH",
         "findings": [
-          "draftVersionId khác activeVersionId",
-          "literal Tavily secret tồn tại trong live CONFIG",
-          "Verify JWT thiếu onError=continueErrorOutput"
+          "REMEDIATED: draftVersionId bằng activeVersionId",
+          "REMEDIATED: literal Tavily secret đã loại khỏi graph và key cũ đã revoke",
+          "REMEDIATED: Verify JWT có onError=continueErrorOutput",
+          "TEST PASS: negative JWT 401; positive executions 1451221 và 1451310"
         ]
       }
     }

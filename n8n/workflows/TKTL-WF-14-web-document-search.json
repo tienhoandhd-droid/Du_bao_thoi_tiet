@@ -3,24 +3,24 @@
     "schemaVersion": 1,
     "workflowNumber": "14",
     "provenance": {
-      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "source": "n8n live qua MCP sau remediation được phê duyệt",
       "capturedAt": "2026-06-29",
       "liveWorkflowId": "6USn5CYpK9VlyExu",
       "graphSource": "activeVersion",
       "priorLocalFileStatus": "untracked; không có commit/PR provenance",
-      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+      "credentialBindingNote": "n8n MCP sanitize credential material; CRAVE-Tavily binding được xác minh qua UI và positive executions, source chỉ lưu reference ID/name."
     },
     "liveState": {
       "published": true,
-      "draftVersionId": "f432217d-c329-45cd-90a7-2a0055719549",
-      "activeVersionId": "70afe9fe-2325-4413-a1b1-860f0c05cb2f",
-      "draftPublishedDrift": true,
+      "draftVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+      "activeVersionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
+      "draftPublishedDrift": false,
       "createdAt": "2026-06-28T08:15:06.696Z",
-      "updatedAt": "2026-06-28T08:26:01.168Z"
+      "updatedAt": "2026-06-29T00:30:33.007Z"
     },
     "redactions": [
       "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__",
-      "Tavily literal secret -> __REDACTED_TAVILY_API_KEY__"
+      "Tavily key nằm trong credential CRAVE-Tavily; MCP không xuất credential material"
     ],
     "credentialBindings": [
       {
@@ -30,13 +30,21 @@
         "id": "0WcJFXEhwLXQhJmn",
         "evidence": "preexisting-untracked-binding-plus-live-node-match",
         "liveMcpBindingVisible": false
+      },
+      {
+        "node": "🌐 Tavily Search",
+        "type": "httpHeaderAuth",
+        "name": "CRAVE-Tavily",
+        "id": "J0X44B6qW4UYBaOc",
+        "evidence": "n8n UI binding verified + positive execution 1451310",
+        "liveMcpBindingVisible": false
       }
     ]
   },
   "id": "6USn5CYpK9VlyExu",
   "name": "TKTL WF-14 Web Document Search",
   "active": false,
-  "versionId": "70afe9fe-2325-4413-a1b1-860f0c05cb2f",
+  "versionId": "4f2f07d4-da78-4196-a70a-80510ac6fbd2",
   "nodes": [
     {
       "id": "7878cdc2-890b-4fa2-b05e-6c06b71c2638",
@@ -91,7 +99,8 @@
             }
           }
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "0405f401-24b2-4f04-a7db-a6e2394e68c3",
@@ -139,12 +148,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "cfg-tavily-key",
-              "name": "tavily_api_key",
-              "value": "__REDACTED_TAVILY_API_KEY__",
-              "type": "string"
-            },
-            {
               "id": "cfg-max-results",
               "name": "max_results",
               "value": 10,
@@ -178,7 +181,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const request = $('🔍 Webhook Web Search').first().json;\nconst verifiedUser = $('🔐 Verify JWT').first().json;\nconst body = request.body || {};\nconst cfg = $input.first().json;\nconst query = typeof body.query === 'string' ? body.query.trim() : '';\nconst searchMode = typeof body.search_mode === 'string' ? body.search_mode.trim() : 'general';\nconst rawDomains = Array.isArray(body.include_domains) ? body.include_domains : [];\nconst maxResults = Math.min(typeof body.max_results === 'number' ? body.max_results : Number(cfg.max_results || 10), 20);\nif (!query) return [{ json: { error: true, status: 400, message: 'Thiếu query' } }];\nif (query.length > Number(cfg.max_query_length || 2000)) return [{ json: { error: true, status: 400, message: 'query vượt quá độ dài cho phép' } }];\nconst modePresets = {\n  guideline: ['who.int','ich.org','picscheme.org','ema.europa.eu','fda.gov','hsa.gov.sg','moh.gov.vn','dav.gov.vn','ispe.org','pda.org'],\n  literature: ['ncbi.nlm.nih.gov','pubmed.ncbi.nlm.nih.gov','europepmc.org'],\n  forum: [], general: []\n};\nconst validModes = Object.keys(modePresets);\nconst mode = validModes.includes(searchMode) ? searchMode : 'general';\nconst domains = rawDomains.length > 0 ? rawDomains : (modePresets[mode] || []);\nreturn [{ json: { error: false, user_id: String(verifiedUser.id || ''), user_email: String(verifiedUser.email || ''), query, search_mode: mode, include_domains: domains, max_results: maxResults, tavily_api_key: String(cfg.tavily_api_key || ''), snippet_max: Number(cfg.snippet_max || 800) } }];"
+        "jsCode": "const request = $('🔍 Webhook Web Search').first().json;\nconst verifiedUser = $('🔐 Verify JWT').first().json;\nconst body = request.body || {};\nconst cfg = $input.first().json;\nconst query = typeof body.query === 'string' ? body.query.trim() : '';\nconst searchMode = typeof body.search_mode === 'string' ? body.search_mode.trim() : 'general';\nconst rawDomains = Array.isArray(body.include_domains) ? body.include_domains : [];\nconst maxResults = Math.min(typeof body.max_results === 'number' ? body.max_results : Number(cfg.max_results || 10), 20);\nif (!query) return [{ json: { error: true, status: 400, message: 'Thiếu query' } }];\nif (query.length > Number(cfg.max_query_length || 2000)) return [{ json: { error: true, status: 400, message: 'query vượt quá độ dài cho phép' } }];\nconst modePresets = {\n  guideline: ['who.int','ich.org','picscheme.org','ema.europa.eu','fda.gov','hsa.gov.sg','moh.gov.vn','dav.gov.vn','ispe.org','pda.org'],\n  literature: ['ncbi.nlm.nih.gov','pubmed.ncbi.nlm.nih.gov','europepmc.org'],\n  forum: [], general: []\n};\nconst validModes = Object.keys(modePresets);\nconst mode = validModes.includes(searchMode) ? searchMode : 'general';\nconst domains = rawDomains.length > 0 ? rawDomains : (modePresets[mode] || []);\nreturn [{ json: { error: false, user_id: String(verifiedUser.id || ''), user_email: String(verifiedUser.email || ''), query, search_mode: mode, include_domains: domains, max_results: maxResults, snippet_max: Number(cfg.snippet_max || 800) } }];"
       }
     },
     {
@@ -249,7 +252,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d = $input.first().json;\nconst body = { api_key: d.tavily_api_key, query: d.query, search_depth: 'advanced', include_answer: false, include_raw_content: false, max_results: d.max_results, topic: 'general' };\nif (d.include_domains && d.include_domains.length > 0) body.include_domains = d.include_domains;\nreturn [{ json: { ...d, tavily_body: JSON.stringify(body) } }];"
+        "jsCode": "const d = $input.first().json;\nconst body = { query: d.query, search_depth: 'advanced', include_answer: false, include_raw_content: false, max_results: d.max_results, topic: 'general' };\nif (d.include_domains && d.include_domains.length > 0) body.include_domains = d.include_domains;\nreturn [{ json: { ...d, tavily_body: JSON.stringify(body) } }];"
       }
     },
     {
@@ -264,6 +267,8 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
@@ -275,6 +280,12 @@
               "neverError": true
             }
           }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "J0X44B6qW4UYBaOc",
+          "name": "CRAVE-Tavily"
         }
       }
     },
