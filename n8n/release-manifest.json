@@ -6,7 +6,10 @@
   "git": {
     "branch": "chat-04/reconcile-tktl-workflows",
     "head": "7ddb730",
-    "originComparison": "PR #3 open; remediation update pending commit",
+    "headRole": "pre-remediation parent",
+    "remediationTree": "32c9e4735c9f84feaa1e771649a5c304e43e6c91",
+    "remoteRemediationCommit": "adc37810b4a9433bd1667230da1b9881ce4ea8d2",
+    "originComparison": "PR #3 open; remediation commit pushed through GitHub Git Database API",
     "remoteMutationPerformed": true
   },
   "n8n": {
