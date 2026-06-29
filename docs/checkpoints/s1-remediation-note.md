@@ -41,27 +41,31 @@ CI fix đã:
 
 ## 4. Supabase read-only verification
 
-**Kết quả:** BLOCKED / NOT VERIFIED.
+**Kết quả:** VERIFIED — FAIL/HOLD.
 
-Phiên hiện tại không có công cụ phù hợp để đọc live Supabase:
+Evidence chi tiết được ghi tại:
 
-- không có Supabase MCP trong MCP resources;
-- không có `supabase` CLI;
-- không có `psql`;
-- không có biến môi trường kết nối DB;
-- không chạy SQL qua service role hoặc dashboard.
+- `docs/checkpoints/s1-supabase-readonly-evidence.md`
 
-Do đó các mục sau chưa được xác minh live trong remediation này:
+Các query đã chạy qua `psql` bằng environment local ngoài repo, trong transaction
+`BEGIN READ ONLY`, chỉ SELECT metadata/live state. Không có migration apply,
+DDL/DML hoặc mutation Supabase.
 
-- live migration list/head;
-- RLS enabled/forced state;
-- policies/grants;
-- function owner/signature/security definer/search path;
-- audit append-only controls;
-- dữ liệu/rủi ro rollback `021d`.
+Kết luận chính:
 
-Query pack cần chạy đã được ghi tại
-`docs/governance/rollback-change-control-013-021d.md`.
+- Live migration head tới `022`, nhưng live không có `016` và `021c` live name là
+  `021c_eval_function_v3_or_tsquery`, khác source filename.
+- RLS bật cho `documents`, `document_chunks`, `audit_log`, `eval_runs`,
+  `eval_results`, nhưng `FORCE RLS` false và owner là `postgres`.
+- `audit_log` có trigger append-only guard cho UPDATE/DELETE; non-owner grants
+  không có UPDATE/DELETE/TRUNCATE cho `authenticated`/`service_role`.
+- `hybrid_search_v3` có `SECURITY DEFINER` và search_path locked
+  `pg_catalog, public, extensions`; execute không mở cho `anon/authenticated`.
+- `run_fts_eval_v1` live là `SECURITY DEFINER` nhưng không có search_path config,
+  trong khi source `022` có `SET search_path = public, extensions`; function còn
+  executable bởi `anon`.
+- Live `eval_runs` có `max(score_mean)=96.55` và `max(score_min)=81.03`, nên rollback
+  `021d` về `numeric(5,4)` là không an toàn.
 
 ## 5. Rollback/change-control 013–021d
 
@@ -104,7 +108,7 @@ Kết luận chính:
 | Required TypeScript Build & Lint SUCCESS trên current `main` | **PASS** |
 | Required context luôn được tạo cho PR/push vào `main` | **SOURCE PASS; cần quan sát PR kế tiếp để chứng minh pull_request path** |
 | Release/deploy sau CI fix | **PASS** |
-| Supabase live verification read-only | **BLOCKED / NOT VERIFIED** |
+| Supabase live verification read-only | **VERIFIED — FAIL/HOLD** |
 | Rollback/change-control 013–021d | **HOLD** |
 | Governance Issue #2 / remote status | **OPEN / stale body; cần owner quyết định update/close** |
 | WF-06 injection/authorization review | **HOLD** |
@@ -113,6 +117,6 @@ Kết luận chính:
 
 Không đủ điều kiện GO CYCLE 2.
 
-**Quyết định sau remediation note:** **HOLD — cần Supabase read-only access,
-rollback change-control approval, Issue #2 governance update và WF-06 remediation
-hoặc negative test evidence.**
+**Quyết định sau remediation note:** **HOLD — Supabase đã verified nhưng phát hiện
+function security drift, rollback `021d` unsafe, Issue #2 governance cần cập nhật
+và WF-06 cần remediation hoặc negative test evidence.**

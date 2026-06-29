@@ -88,7 +88,7 @@ Sao chép khối này khi mở Chat mới:
 | GitHub Actions | `CI — TypeScript Build & Lint` run `28343429940` SUCCESS; Pages deploy `28343429927` SUCCESS |
 | Thay đổi | Bỏ `paths` filter để required context luôn được tạo; thay scanner generic `PLACEHOLDER` bằng unresolved sentinel cụ thể; chuyển secret scan sang quiet mode |
 | Trạng thái | `[x]` CI remediation PASS |
-| Còn mở | `[!]` Supabase read-only verification, rollback/change-control 013–021d, Issue #2 stale/open, WF-06 injection/authorization |
+| Còn mở | `[!]` Supabase read-only đã VERIFIED nhưng FAIL/HOLD: `run_fts_eval_v1` security drift, rollback `021d` unsafe, Issue #2 stale/open, WF-06 injection/authorization |
 
 ### S1-REMEDIATION-NOTE — 2026-06-29
 
@@ -97,5 +97,5 @@ Sao chép khối này khi mở Chat mới:
 | Note | [`docs/checkpoints/s1-remediation-note.md`](../checkpoints/s1-remediation-note.md) |
 | Rollback plan | [`docs/governance/rollback-change-control-013-021d.md`](rollback-change-control-013-021d.md) |
 | WF-06 review | [`docs/governance/wf-06-document-search-review.md`](wf-06-document-search-review.md) |
-| Supabase read-only | BLOCKED: không có Supabase MCP/CLI/psql/DB env trong phiên |
+| Supabase read-only | VERIFIED bằng `psql` SELECT-only; evidence tại [`docs/checkpoints/s1-supabase-readonly-evidence.md`](../checkpoints/s1-supabase-readonly-evidence.md); kết quả FAIL/HOLD |
 | Quyết định sau note | **HOLD — chưa GO CYCLE 2** |

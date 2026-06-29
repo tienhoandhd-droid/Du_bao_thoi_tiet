@@ -31,7 +31,7 @@ riêng, không phải thao tác kỹ thuật tùy tiện.
 | `021_eval_harness.sql` | Có | `021_down.sql` trong `supabase/migrations/` | `021_down` đang gộp rollback cho `021`, `021b`, `021c`, `021d`; không đạt convention one-to-one. |
 | `021b_eval_function_v2.sql` | Có | Không có file riêng | **Blocker:** source v2 là superseded stub; rollback đúng cần biết predecessor và live order. |
 | `021c_eval_function_v3.sql` | Có | Không có file riêng | **Blocker:** source map ghi name drift; rollback đúng cần exact function body trước `021c`. |
-| `021d_eval_score_columns_fix.sql` | Có | Không có file riêng | **Blocker:** rollback score precision có trong `021_down`, nhưng chưa tách riêng; cần kiểm dữ liệu >9.9999 trước khi thu hẹp numeric. |
+| `021d_eval_score_columns_fix.sql` | Có | Không có file riêng | **Blocker:** rollback score precision có trong `021_down`, nhưng chưa tách riêng; live `eval_runs` đang có `score_mean=96.55` và `score_min=81.03`, nên rollback về `numeric(5,4)` không an toàn. |
 
 ## 3. Quyết định change-control đề xuất
 
@@ -124,7 +124,21 @@ select
 from public.eval_runs;
 ```
 
-## 5. Điều kiện đóng blocker rollback
+## 5. Live evidence từ S1
+
+S1 read-only verification ngày 2026-06-29 đã xác nhận:
+
+- Live head tới `022`.
+- Live thiếu `016` trong `schema_migrations`.
+- Live `021c` có tên `021c_eval_function_v3_or_tsquery`, khác source filename.
+- `run_fts_eval_v1` live là `SECURITY DEFINER`, executable bởi `anon`, và không
+  có search_path config dù source `022` có `SET search_path = public, extensions`.
+- `eval_runs` có `max(score_mean)=96.55`, `max(score_min)=81.03`, `count=10`;
+  rollback `021d` về `numeric(5,4)` sẽ không an toàn nếu không xử lý dữ liệu.
+
+Evidence chi tiết: `docs/checkpoints/s1-supabase-readonly-evidence.md`.
+
+## 6. Điều kiện đóng blocker rollback
 
 Blocker rollback 013–021d chỉ được đóng khi:
 
@@ -137,7 +151,7 @@ Blocker rollback 013–021d chỉ được đóng khi:
    owner/expiry rõ ràng.
 6. Secret scan và SQL parse/test PASS sau mọi thay đổi source.
 
-## 6. Khuyến nghị trạng thái
+## 7. Khuyến nghị trạng thái
 
 Cho tới khi các điều kiện trên có evidence, mục rollback vẫn là:
 

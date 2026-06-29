@@ -51,14 +51,23 @@ nếu sau này logic dùng `userId` decoded này cho authorization.
 ### F-06-03 — Authorization boundary chưa chứng minh bằng DB/RLS evidence
 
 WF-06 dùng Postgres credential `GMP-check` để SELECT trực tiếp bảng `documents`.
-Review source không chứng minh được:
+S1 Supabase read-only verification đã xác nhận:
+
+- `documents` và `document_chunks` bật RLS;
+- `FORCE RLS` đang false;
+- table owner là `postgres`;
+- table grants cho `documents`/`document_chunks` rộng ở mức role grants và phụ
+  thuộc RLS policies để chặn thực thi theo user.
+
+Review source/live vẫn chưa chứng minh được:
 
 - credential có bị RLS bypass không;
 - policy `documents` có ràng buộc user/document access không;
 - `include_superseded=true` có phù hợp vai trò người gọi không;
 - response có trả metadata không được phép cho user thường không.
 
-**Mức độ:** P1/P0 tùy kết quả Supabase read-only verification.
+**Mức độ:** P0/P1. Nếu `GMP-check` dùng DB owner/role bypass RLS, WF-06 direct
+SQL có thể đọc ngoài boundary người dùng dù frontend có JWT.
 
 ### F-06-04 — Webhook CORS đang `allowedOrigins: "*"`
 
@@ -100,6 +109,7 @@ Không execute workflow trong review này. Trước khi đóng finding cần có
 
 WF-06 không còn là “unknown”: live/source đã được xác nhận read-only, auth node
 đứng trước query và có error branch đúng. Nhưng do dynamic SQL + DB authorization
-boundary chưa được chứng minh, review kết luận:
+boundary chưa được chứng minh, đồng thời Supabase live cho thấy `FORCE RLS=false`
+và owner là `postgres`, review kết luận:
 
 **HOLD — cần remediation hoặc negative test evidence trước GO CYCLE 2.**
