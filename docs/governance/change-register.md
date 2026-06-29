@@ -99,3 +99,13 @@ Sao chép khối này khi mở Chat mới:
 | WF-06 review | [`docs/governance/wf-06-document-search-review.md`](wf-06-document-search-review.md) |
 | Supabase read-only | VERIFIED bằng `psql` SELECT-only; evidence tại [`docs/checkpoints/s1-supabase-readonly-evidence.md`](../checkpoints/s1-supabase-readonly-evidence.md); kết quả FAIL/HOLD |
 | Quyết định sau note | **HOLD — chưa GO CYCLE 2** |
+
+### S1-RUN-FTS-EVAL-REMEDIATION — 2026-06-29
+
+| Trường | Giá trị |
+|---|---|
+| Finding | `run_fts_eval_v1` live là `SECURITY DEFINER`, thiếu locked search_path và executable bởi `anon` |
+| Source package | `supabase/migrations/023_harden_run_fts_eval_v1.sql`; `supabase/rollbacks/023_harden_run_fts_eval_v1_down.sql` |
+| Evidence note | [`docs/checkpoints/s1-run-fts-eval-remediation.md`](../checkpoints/s1-run-fts-eval-remediation.md) |
+| Live operation | Chưa apply |
+| Trạng thái | `[ ]` READY_FOR_LIVE_APPROVAL |

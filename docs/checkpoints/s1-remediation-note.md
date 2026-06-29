@@ -109,6 +109,7 @@ Kết luận chính:
 | Required context luôn được tạo cho PR/push vào `main` | **SOURCE PASS; cần quan sát PR kế tiếp để chứng minh pull_request path** |
 | Release/deploy sau CI fix | **PASS** |
 | Supabase live verification read-only | **VERIFIED — FAIL/HOLD** |
+| `run_fts_eval_v1` remediation source package | **READY_FOR_LIVE_APPROVAL** |
 | Rollback/change-control 013–021d | **HOLD** |
 | Governance Issue #2 / remote status | **OPEN / stale body; cần owner quyết định update/close** |
 | WF-06 injection/authorization review | **HOLD** |
@@ -120,3 +121,13 @@ Không đủ điều kiện GO CYCLE 2.
 **Quyết định sau remediation note:** **HOLD — Supabase đã verified nhưng phát hiện
 function security drift, rollback `021d` unsafe, Issue #2 governance cần cập nhật
 và WF-06 cần remediation hoặc negative test evidence.**
+
+## 9. Remediation package lập sau S1
+
+Đã tạo source package cho finding `run_fts_eval_v1`:
+
+- `supabase/migrations/023_harden_run_fts_eval_v1.sql`
+- `supabase/rollbacks/023_harden_run_fts_eval_v1_down.sql`
+- `docs/checkpoints/s1-run-fts-eval-remediation.md`
+
+Package này chưa apply live. Trạng thái: **READY_FOR_LIVE_APPROVAL**.
