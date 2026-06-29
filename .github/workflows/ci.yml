@@ -3,14 +3,8 @@ name: CI — TypeScript Build & Lint
 on:
   push:
     branches: ["**"]
-    paths:
-      - "app/**"
-      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "app/**"
-      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read
@@ -69,21 +63,21 @@ jobs:
       - name: Kiểm tra output không chứa placeholder
         working-directory: app
         run: |
-          if grep -r "YOUR_SUPABASE\|PLACEHOLDER\|changeme\|TODO_KEY" dist/ 2>/dev/null; then
-            echo "❌ FAIL: Phát hiện placeholder trong build output"
+          if grep -rEq '__SUPABASE_URL__|__SUPABASE_ANON_KEY__|__WEBHOOK_BASE__|YOUR_SUPABASE_URL|YOUR_SUPABASE_ANON_KEY|YOUR_WEBHOOK_BASE|changeme|TODO_KEY' dist/ 2>/dev/null; then
+            echo "❌ FAIL: Phát hiện unresolved placeholder/sentinel trong build output"
             exit 1
           fi
-          echo "✅ Không có placeholder trong dist/"
+          echo "✅ Không có unresolved placeholder/sentinel trong dist/"
 
       - name: Secret scan — không key thật trong source
         run: |
           # Quét pattern service-role key (bắt đầu bằng eyJ dài >200 ký tự)
-          if grep -rE 'eyJ[A-Za-z0-9_-]{200,}' app/src/ 2>/dev/null; then
+          if grep -rEq 'eyJ[A-Za-z0-9_-]{200,}' app/src/ 2>/dev/null; then
             echo "❌ FAIL: Nghi ngờ có JWT/key dài trong source"
             exit 1
           fi
           # Quét Tavily key
-          if grep -rE 'tvly-[A-Za-z0-9]{20,}' app/src/ n8n/ 2>/dev/null; then
+          if grep -rEq 'tvly-[A-Za-z0-9]{20,}' app/src/ n8n/ 2>/dev/null; then
             echo "❌ FAIL: Phát hiện Tavily API key trong source"
             exit 1
           fi
