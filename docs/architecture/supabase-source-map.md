@@ -25,7 +25,7 @@ Tài liệu này đối chiếu migration source trong Git với danh sách migr
 | 021c | `eval_function_v3_or_tsquery` | `exact` | Repo là `021c_eval_function_v3.sql`; record live là `021c_eval_function_v3_or_tsquery`. Definition progression phù hợp dữ liệu được cung cấp, nhưng tên file không byte-identical với tên live. |
 | 021d | `eval_score_columns_fix` | `exact` | Repo `021d_eval_score_columns_fix.sql`; live `021d_eval_score_columns_fix`. |
 | 022 | `fix_eval_rank_order` | `exact` | Chat 03 tạo `022_fix_eval_rank_order.sql` từ definition live đã được paste; không apply lại lên production. |
-| 023 | `harden_run_fts_eval_v1` | `source-ready` | S1 remediation source package. Chưa apply live. Lock `run_fts_eval_v1` search_path và revoke execute khỏi `PUBLIC`/`anon`. |
+| 023 | `harden_run_fts_eval_v1` | `live-applied` | S1 remediation applied live with version `20260629095000`. Lock `run_fts_eval_v1` search_path và revoke execute khỏi `PUBLIC`/`anon`; post-apply verification PASS. |
 
 ## Gaps và điểm cần điều tra
 

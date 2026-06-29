@@ -2,8 +2,8 @@
 
 **Ngày:** 2026-06-29
 **Scope:** Supabase source package only
-**Live operation:** none
-**Status:** **READY_FOR_LIVE_APPROVAL**
+**Live operation:** applied after explicit approval
+**Status:** **LIVE_APPLIED — PASS**
 
 ## 1. Finding được xử lý
 
@@ -76,9 +76,21 @@ Migration 023 chỉ xử lý function security drift. Nó không đóng các S1 
 - Issue #2 governance vẫn cần update/close;
 - migration `016`/`021c` history drift vẫn cần change-control explanation.
 
-## 6. Quyết định
+## 6. Live apply result
 
-Source package đã sẵn sàng cho review/apply live riêng.
+Migration 023 was applied live after explicit user confirmation. Post-apply
+verification passed:
 
-**Không GO CYCLE 2 chỉ nhờ source package này.** Cần apply live + verification
-PASS và xử lý các blocker còn lại.
+- `search_path=pg_catalog, public, extensions`;
+- `anon` execute = false;
+- `authenticated` execute = true;
+- `service_role` execute = true;
+- live migration record `20260629095000 / 023_harden_run_fts_eval_v1` exists.
+
+Evidence: `docs/checkpoints/s1-run-fts-eval-live-apply.md`.
+
+## 7. Quyết định
+
+The `run_fts_eval_v1` security finding is remediated live.
+
+**Không GO CYCLE 2 chỉ nhờ remediation này.** Cần xử lý các blocker còn lại.

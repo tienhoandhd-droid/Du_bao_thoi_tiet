@@ -107,5 +107,7 @@ Sao chép khối này khi mở Chat mới:
 | Finding | `run_fts_eval_v1` live là `SECURITY DEFINER`, thiếu locked search_path và executable bởi `anon` |
 | Source package | `supabase/migrations/023_harden_run_fts_eval_v1.sql`; `supabase/rollbacks/023_harden_run_fts_eval_v1_down.sql` |
 | Evidence note | [`docs/checkpoints/s1-run-fts-eval-remediation.md`](../checkpoints/s1-run-fts-eval-remediation.md) |
-| Live operation | Chưa apply |
-| Trạng thái | `[ ]` READY_FOR_LIVE_APPROVAL |
+| Live operation | Applied via `psql` after explicit confirmation “Xác nhận apply migration 023 live” |
+| Verification | `search_path=pg_catalog, public, extensions`; `anon=false`; `authenticated=true`; `service_role=true`; migration record present |
+| Evidence | [`docs/checkpoints/s1-run-fts-eval-live-apply.md`](../checkpoints/s1-run-fts-eval-live-apply.md) |
+| Trạng thái | `[x]` LIVE_APPLIED — PASS |
