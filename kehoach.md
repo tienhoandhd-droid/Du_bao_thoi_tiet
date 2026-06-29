@@ -1025,12 +1025,13 @@ Ký hiệu: `✅` đã hoàn thành có evidence; `🗓️` kế hoạch/chưa b
 
 | Chat | Owner | Trạng thái | Đã hoàn thành | Kế hoạch | Chưa giải quyết/dependency |
 |---:|---|---|---|---|---|
-| 01 | Codex GPT | 🗓️ KẾ HOẠCH | — | Snapshot/change register/file ownership | Cần recheck live và tạo Issue/branch trước thay đổi |
-| 02 | Claude Code | 🗓️ KẾ HOẠCH | — | GitHub secret/branch hardening package | Service key rotation, Secrets và branch rule chưa được phép thao tác live |
-| 03 | Codex GPT | 🗓️ KẾ HOẠCH | — | Reconcile Supabase source tới 022 | Thiếu evidence 001–012, 022 rollback và 021b–d rollback |
-| 04 | Claude Code | 🗓️ KẾ HOẠCH | — | Export/reconcile 14 workflow TKTL | Repo thiếu 9 JSON; WF-14 drift/Tavily; binding có thể bị redaction |
-| 05 | Codex GPT | 🗓️ KẾ HOẠCH | — | Issue/PR templates, repo scaffold, release validator | Convention rollback/workflow/prompt chưa được CI enforce |
-| 06 | Codex GPT | 🗓️ KẾ HOẠCH | — | Migration 023 security/eval hardening | Phụ thuộc S1 và exact live signatures; chưa apply |
+| 01 | Codex GPT | ✅ PASS | Snapshot/change register/file ownership đã vào `main` qua PR #3 merge `7fd1db5` | Không mở lại baseline; chỉ cập nhật evidence bằng change register | Issue riêng cho Chat 01 không có; chấp nhận hồi tố trong S1 |
+| 02 | Claude Code | ✅ PASS với caveat | GitHub secret/branch hardening source có trên `main`; branch protection hiện yêu cầu PR + `TypeScript Build & Lint` | Chuẩn hóa policy single-owner/admin bypass nếu tiếp tục main-only | Provenance Issue/PR ban đầu chưa đầy đủ; `enforce_admins=false` |
+| 03 | Codex GPT | ⚠️ BLOCKED | Supabase source tới 022 và source map đã vào `main` | Cần Supabase read-only verification và rollback/change-control 013–021d | Thiếu live verification, 016/021 drift, rollback 021b–d chưa đóng |
+| 04 | Claude Code | ✅ PASS với caveat | 14 workflow TKTL export/redaction/manifest; n8n live/source 14/14 khớp; WF-14 drift đã remediation | Cập nhật/đóng Issue #2 sau quyết định governance | Issue #2 còn OPEN/stale body; JWT byte-identical toàn hệ thống chưa chứng minh |
+| 05 | Codex GPT | ✅ PASS | Issue/PR templates, repo scaffold, release validator và CI guardrail đã vào `main`; CI remediation `5fb904a` PASS | Cân nhắc đưa release guard vào required checks bằng change riêng | CI required context đã PASS trên push; cần quan sát PR kế tiếp để chứng minh pull_request path |
+| S1 | Claude Code / Codex GPT | ⚠️ HOLD | `docs/checkpoints/system-check-S1.md`; CI remediation PASS run `28343429940`; remediation note lập | Đóng Supabase verification, rollback/change-control, Issue #2 và WF-06 | Chưa GO CYCLE 2 |
+| 06 | Codex GPT | ⚠️ BLOCKED | — | Migration 023 security/eval hardening | Phụ thuộc S1 GO và exact live signatures; chưa apply |
 | 07 | Claude Code | 🗓️ KẾ HOẠCH | — | Docling local spike 5 file | Chưa chốt fixture/parser/version/resource baseline |
 | 08 | Claude Code | 🗓️ KẾ HOẠCH | — | Docling worker + OQ 20 file | Phụ thuộc kết quả Chat 07; chưa có production connector |
 | 09 | Codex GPT | 🗓️ KẾ HOẠCH | — | Migration 024: document versions + `version_status`/`newer_version_url`/RPC | Phụ thuộc 022/023 source và backfill mapping 12 docs/65 chunks |
