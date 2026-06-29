@@ -1,0 +1,73 @@
+name: CRAVE — Release Manifest Guard
+
+on:
+  push:
+    paths:
+      - "release-manifest.json"
+      - "scripts/validate_release_manifest.py"
+      - "scripts/test_release_manifest.py"
+      - "scripts/scan_repository_secrets.py"
+      - "eval/fixtures/release-package/**"
+      - "prompts/**"
+      - "supabase/migrations/**"
+      - "supabase/rollbacks/**"
+      - "n8n/workflows/**"
+      - ".github/workflows/release-guard.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "release-manifest.json"
+      - "scripts/validate_release_manifest.py"
+      - "scripts/test_release_manifest.py"
+      - "scripts/scan_repository_secrets.py"
+      - "eval/fixtures/release-package/**"
+      - "prompts/**"
+      - "supabase/migrations/**"
+      - "supabase/rollbacks/**"
+      - "n8n/workflows/**"
+      - ".github/workflows/release-guard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Static manifest guard (synthetic fixture)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: >-
+          python3 -m py_compile
+          scripts/validate_release_manifest.py
+          scripts/scan_repository_secrets.py
+          scripts/test_release_manifest.py
+
+      - name: Positive and negative tests
+        run: python3 -m unittest scripts/test_release_manifest.py
+
+      - name: Validate synthetic fixture
+        run: >-
+          python3 scripts/validate_release_manifest.py
+          --manifest eval/fixtures/release-package/release-manifest.valid.json
+          --repo-root eval/fixtures/release-package
+
+      - name: Validate system release manifest when present
+        run: |
+          if [ -f release-manifest.json ]; then
+            python3 scripts/validate_release_manifest.py --manifest release-manifest.json --repo-root .
+          else
+            echo "INFO: release-manifest.json chưa được tạo; fixture guard đã PASS."
+          fi
+
+      - name: Secret scan without value disclosure
+        run: >-
+          python3 scripts/scan_repository_secrets.py
+          app docs eval n8n prompts scripts supabase

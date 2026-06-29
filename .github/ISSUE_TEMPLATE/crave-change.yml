@@ -1,0 +1,60 @@
+name: CRAVE change package
+description: Theo dõi một thay đổi CRAVE có phạm vi, evidence và rollback rõ ràng.
+title: "[CRAVE] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Không dán secret, token, dữ liệu GMP thật hoặc thông tin người dùng vào issue public.
+  - type: input
+    id: chat
+    attributes:
+      label: Chat / System Check
+      description: Ví dụ Chat 05 hoặc S1.
+      placeholder: Chat NN
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Mục tiêu và giá trị
+      description: Nêu intended use, kết quả mong muốn và lý do cần thay đổi.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Phạm vi file và hệ thống
+      description: Liệt kê file; ghi rõ Supabase, n8n, GitHub hoặc frontend có thuộc phạm vi không.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Rủi ro GMP / bảo mật / vận hành
+      description: Bao gồm ảnh hưởng ALCOA+, audit, RLS, credential và source-runtime drift.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test và evidence cần có
+      description: Ghi positive/negative test, threshold và vị trí evidence đã redaction.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: Nêu cách hoàn nguyên và dữ liệu nào phải được giữ lại.
+    validations:
+      required: true
+  - type: checkboxes
+    id: live
+    attributes:
+      label: Cổng thao tác live
+      options:
+        - label: Tôi hiểu issue/PR không tự cho phép apply migration, ghi production, update/execute/publish n8n.
+          required: true
+        - label: Tôi đã loại secret và dữ liệu GMP thật khỏi nội dung issue.
+          required: true
