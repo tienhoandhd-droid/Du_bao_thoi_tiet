@@ -16,20 +16,39 @@
 | Hybrid/FTS/RRF | **Postgres FTS + pgvector** (đã có) | free, gốc |
 | Nén embedding | **halfvec / binary** (pgvector) | free, gốc |
 | Semantic cache | **bảng pgvector** | free, tự xây |
-| Embedding model | **bge-m3** hoặc **multilingual-e5-large** (self-host Ollama/HF) *hoặc* giữ `text-embedding-3-small` | free self-host tốt cho song ngữ VI/EN; đổi model = re-embed + đổi chiều |
-| LLM sinh câu trả lời | **Ollama local** (Qwen2.5 / Llama 3.x) — free + **private** ⭐ · hoặc **Google Gemini free tier** · **Groq free tier** | Ollama = tốt nhất cho GMP (không egress); free-tier cloud làm fallback |
-| Reranker | **bge-reranker-v2-m3** (self-host, free) | tăng chính xác; cần chỗ chạy model |
-| OCR/parse | **Docling · PaddleOCR · Tesseract** (local, free) | cho bảng/hình/sơ đồ |
-| Visual retrieval | **ColPali/ColQwen** (weights free, self-host) | pha sau, cần GPU/RAM |
+| Embedding model | **`text-embedding-3-small` (OpenAI, cloud)** | always-on, rẻ; self-host embedding loại vì máy không 24/7 |
+| LLM — độ chính xác cao / phân tích / phức tạp | **OpenAI** (gpt-4o-mini, nâng model khi cần) | công cụ cần chính xác, phân tích vấn đề, reasoning, sinh câu trả lời chính |
+| LLM — vòng lặp kiểm chính xác cao | **Claude (trong n8n)** | cross-check nhiều lượt, faithfulness judge (accuracy-first) |
+| LLM — tác vụ phụ | **Gemini / Groq / HF free tier** | query rewrite, HyDE, router phân loại, tóm tắt nháp, glossary |
+| Reranker | **LLM-rerank (free-tier hoặc Claude)** — KHÔNG self-host | máy không 24/7 → dùng API thay vì host bge-reranker |
+| OCR/parse (BATCH ingest) | **Docling · PaddleOCR · Tesseract · MinerU** (local, free) | chạy trong khung giờ máy bật hoặc trên server n8n — không cần always-on |
+| Visual retrieval | ~~ColPali/ColQwen self-host~~ **LOẠI cho runtime** (cần host 24/7) | chỉ xét lại nếu có server GPU always-on |
 | Workflow | **n8n self-hosted** (đã có) | chỉ node/credential free |
 | UI pattern | **Kotaemon**, **Perplexica/Fireplexity** (MIT/Apache) | học pattern, port React/TS |
 
-**Quyết định hạ tầng AI free cần chốt (Giai đoạn 0):**
-- **Phương án A — Ollama local (khuyến nghị GMP):** chạy model trên máy/server có thể reach từ n8n.
-  Ưu: free tuyệt đối, private, không credential. Nhược: cần RAM/CPU-GPU; n8n phải gọi được endpoint Ollama.
-- **Phương án B — Free-tier cloud API** (Gemini/Groq/HuggingFace): free hạn mức, không cần hardware.
-  Nhược: dữ liệu rời hệ thống (cân nhắc GMP — chỉ gửi query + chunk đã duyệt public, không gửi tài liệu mật).
-- **Phương án C — Giữ OpenAI** cho embedding (cực rẻ) + free cho phần còn lại (hybrid tiết kiệm).
+### Chiến lược AI đã CHỐT (2026-07-01)
+
+Thực tế: **máy không chạy 24/7** (chỉ bật một khoảng mỗi ngày) → runtime phải là **cloud** (n8n
+server luôn bật). Bỏ Ollama/self-host always-on cho runtime.
+
+**Phân tầng model (multi-AI):**
+- **OpenAI** = **công cụ độ chính xác cao + phân tích vấn đề** + xử lý phức tạp: reasoning/phân tích,
+  sinh câu trả lời câu khó, **embedding** (`text-embedding-3-small`).
+- **Claude (trong n8n)** = **vòng lặp kiểm độ chính xác cao**: cross-check câu trả lời, faithfulness
+  judge, kiểm số/đơn vị/citation nhiều lượt. Chấp nhận chậm (accuracy-first).
+- **Free-tier cloud** (Gemini/Groq/HF) = tác vụ phụ: query rewrite, HyDE, router phân loại, tóm tắt nháp.
+- **Self-host free** (Docling/PaddleOCR/MinerU) = **chỉ batch ingest** trong khung giờ máy bật / trên server.
+
+**Mẫu "chồng AI + vòng lặp kiểm" (cho tác vụ chính xác cao, không ưu tiên thời gian):**
+```
+Nội dung GMP quan trọng ─► sinh bằng OpenAI
+   ─► N vòng kiểm chéo (Claude + free-tier), mỗi model 1 lens:
+        · đúng dữ kiện (grounded)   · đủ citation   · đúng số/đơn vị
+   ─► bất đồng? ─► lặp tinh chỉnh tới khi hội tụ HOẶC chuyển human sign-off
+   ─► ghi mọi vòng vào audit append-only
+```
+Đây là mở rộng chính sách đồng thuận §3.5 (đa engine cho bảng/hình) lên **tầng câu trả lời** — dùng
+cho câu hỏi rủi ro cao (thẩm định, số liệu tới hạn), nơi bạn ưu tiên đúng hơn nhanh.
 
 ---
 
@@ -61,10 +80,10 @@ staging → **đồng thuận đa engine → AL** → schema `document_tables`/`
 ### GIAI ĐOẠN 0 — Nền tảng & tài khoản free (1–2 ngày)
 | # | Việc | Công cụ free | Ai làm | DoD |
 |---|---|---|---|---|
-|0.1| Chốt hạ tầng AI free (A/B/C ở §0) | — | 🔵 bạn quyết | Ghi quyết định |
-|0.2| Tạo tài khoản/free-tier + credential n8n (Gemini/Groq/HF hoặc endpoint Ollama) | free tier | 🔵+🟡 | Credential n8n sạch, không hard-code |
-|0.3| Đo tài nguyên máy (nếu Ollama/self-host) | `ollama`, htop | 🟢 | Biết chạy được model nào |
-|0.4| Bật `pg_trgm`/kiểm extension khả dụng trên Supabase | Supabase | 🟢 | Danh sách extension free |
+|0.1| ✅ Chốt chiến lược AI (OpenAI phức tạp · Claude vòng lặp · free-tier phụ) | — | ✅ xong | Đã ghi §0 |
+|0.2| Tạo credential n8n free-tier phụ (Gemini/Groq/HF) + xác nhận credential OpenAI & Claude sẵn có | free tier | 🔵+🟡 | Credential n8n sạch, không hard-code |
+|0.3| Xác định **khung giờ máy bật** cho batch ingest (OCR/parse/embedding corpus) | — | 🔵 | Lịch chạy batch |
+|0.4| Kiểm extension free khả dụng trên Supabase (`pg_trgm`…) | Supabase | 🟢 | Danh sách extension |
 
 ### GIAI ĐOẠN 1 — Quick wins retrieval (Supabase, free) — **ưu tiên cao**
 | # | Việc | Ai làm | DoD / GMP gate |
@@ -85,7 +104,7 @@ staging → **đồng thuận đa engine → AL** → schema `document_tables`/`
 ### GIAI ĐOẠN 3 — Reranking + HyDE (AI free)
 | # | Việc | Ai làm | DoD |
 |---|---|---|---|
-|3.1| **Reranker free**: bge-reranker-v2-m3 (self-host) hoặc LLM rerank (free) — chèn sau hybrid pool | 🟡🔵 | +chính xác đo bằng eval |
+|3.1| **Reranker qua API** (KHÔNG self-host): LLM-rerank bằng free-tier cho câu thường, **OpenAI cho câu độ chính xác cao** — chèn sau hybrid pool | 🟡 | +chính xác đo bằng eval |
 |3.2| **HyDE có điều kiện** (free LLM sinh doc giả định) cho câu ngắn/mơ hồ | 🟡 | Chỉ bật khi query ngắn; verify nguồn thật |
 
 ### GIAI ĐOẠN 4 — Adaptive routing + Agentic + Faithfulness (n8n, free)
@@ -106,7 +125,7 @@ staging → **đồng thuận đa engine → AL** → schema `document_tables`/`
 ### GIAI ĐOẠN 6 — Visual retrieval (nghiên cứu, tùy hardware)
 | # | Việc | Ai làm | DoD |
 |---|---|---|---|
-|6.1| Thử **ColPali/ColQwen** self-host (weights free) nếu có GPU/RAM; else giữ OCR+text | 🔵 | Quyết định pha sau |
+|6.1| ~~ColPali/ColQwen self-host~~ **HOÃN** (cần host 24/7 — máy không luôn bật). Giữ OCR+text-embedding; xét lại nếu có server GPU always-on | 🔵 | — |
 |6.2| **Binary quantization** khi corpus lớn (2 tầng rerank) | 🟢 CLI | Recall −<4% |
 
 ### GIAI ĐOẠN 7 — Cổng GO (R11)
@@ -132,7 +151,7 @@ permission leakage=0 · secret scan 0. Cấm sửa số để "làm xanh".
 - Mọi AI output GMP = DRAFT; human sign-off bắt buộc; audit append-only.
 
 ## 6. Việc cần BẠN quyết/chuẩn bị
-1. **Chốt hạ tầng AI free** (A: Ollama local / B: free-tier cloud / C: giữ OpenAI + free) — §0.
-2. Nếu chọn B: tạo free-tier account (Gemini/Groq/HF) → đưa credential vào n8n.
-3. Nếu chọn A: xác nhận máy/server chạy Ollama mà n8n gọi được.
+1. ✅ Chiến lược AI đã chốt (OpenAI độ-chính-xác-cao/phân-tích · Claude vòng lặp kiểm · free-tier phụ).
+2. Tạo free-tier account phụ (Gemini/Groq/HF) → đưa credential vào n8n (OpenAI & Claude đã có).
+3. Xác định **khung giờ máy bật** cho batch ingest (OCR/parse/embedding corpus).
 4. **Corpus thật** (mapping `document_code → drive_file_id`) để mở retrieval production.
