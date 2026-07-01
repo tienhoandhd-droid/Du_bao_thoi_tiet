@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
+import MultimodalSearchPage from "@/features/search/MultimodalSearchPage";
 import { ObservabilityPanel, type ObservabilityRow } from "@/features/observability/ObservabilityPanel";
 import { EvalPanel } from "@/features/eval/EvalPanel";
 import type {
@@ -28,7 +29,7 @@ import type {
 } from "@/types/api";
 import type { EnvCheck } from "@/types/env";
 
-type PageId = "dashboard" | "ai-search" | "documents" | "web-search" | "audit" | "security" | "validation";
+type PageId = "dashboard" | "ai-search" | "documents" | "multimodal" | "web-search" | "audit" | "security" | "validation";
 
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   dashboard: "❄ Tổng quan",
   "ai-search": "✦ AI Search / Q&A",
   documents: "❆ Thư viện tài liệu",
+  multimodal: "🖼️ Tìm kiếm đa phương thức",
   "web-search": "🔎 Tìm kiếm Web",
   audit: "✧ Audit Trail",
   security: "🔒 Bảo mật",
@@ -753,6 +755,8 @@ export default function App() {
         />
       ) : null}
 
+      {page === "multimodal" ? <MultimodalSearchPage /> : null}
+
       {page === "web-search" ? (
         <WebSearchPanel
           token={token}
@@ -957,6 +961,9 @@ function Shell({
             <NavItem active={page === "documents"} onClick={() => onPageChange("documents")}>
               ❆ Thư viện tài liệu
             </NavItem>
+            <NavItem active={page === "multimodal"} onClick={() => onPageChange("multimodal")}>
+              🖼️ Đa phương thức
+            </NavItem>
             <NavItem active={page === "web-search"} onClick={() => onPageChange("web-search")}>
               🔎 Tìm kiếm Web
             </NavItem>
@@ -1006,6 +1013,9 @@ function Shell({
                 </MobileNavItem>
                 <MobileNavItem active={page === "documents"} onClick={() => onPageChange("documents")}>
                   Tài liệu
+                </MobileNavItem>
+                <MobileNavItem active={page === "multimodal"} onClick={() => onPageChange("multimodal")}>
+                  Đa phương thức
                 </MobileNavItem>
                 <MobileNavItem active={page === "web-search"} onClick={() => onPageChange("web-search")}>
                   Tìm kiếm Web
