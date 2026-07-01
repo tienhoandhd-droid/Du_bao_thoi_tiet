@@ -48,3 +48,6 @@ output/
 *.rar
 *.zip
 *.7z
+
+# Review điều phối nội bộ (private)
+claude-review/
