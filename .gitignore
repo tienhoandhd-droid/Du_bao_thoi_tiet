@@ -40,6 +40,8 @@ scripts/validate_p0_closure_manifest.py
 # ===== Scratch + tài liệu nhị phân (bản quyền / rò rỉ) — không public =====
 work/
 output/
+.venv-scan/
+.venv/
 *.pdf
 *.docx
 *.doc
