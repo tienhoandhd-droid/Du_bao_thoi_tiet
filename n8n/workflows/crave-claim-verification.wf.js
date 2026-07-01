@@ -72,26 +72,8 @@ const framingAgent = node({
   output: [{ output: { claim_text_vi: '...', claim_text_en: '...', frame_used: 'pcc', facets: {}, retrieval_queries: { en: ['...'] } } }]
 });
 
-const embedQuery = node({
-  type: 'n8n-nodes-base.httpRequest',
-  version: 4.4,
-  config: {
-    name: 'Nhung truy van OpenAI',
-    parameters: {
-      method: 'POST',
-      url: 'https://api.openai.com/v1/embeddings',
-      authentication: 'predefinedCredentialType',
-      nodeCredentialType: 'openAiApi',
-      sendBody: true,
-      contentType: 'json',
-      specifyBody: 'json',
-      jsonBody: expr('{ "model": "text-embedding-3-small", "input": {{ JSON.stringify($("Khung hoa menh de").item.json.output.claim_text_en) }} }')
-    },
-    credentials: { openAiApi: newCredential('OpenAl') }
-  },
-  output: [{ data: [{ embedding: [0.01, 0.02] }] }]
-});
-
+// Interim: corpus 0/65 embedding (R06 pending) + hybrid_search_v4 yêu cầu embedding is not null.
+// Dùng zero-vector -> hybrid_search_v4 chạy nhánh FTS; khi backfill embedding xong, thay bằng embedding OpenAI thật.
 const buildVector = node({
   type: 'n8n-nodes-base.code',
   version: 2,
@@ -100,10 +82,10 @@ const buildVector = node({
     parameters: {
       mode: 'runOnceForAllItems',
       language: 'javaScript',
-      jsCode: "const emb = $json.data[0].embedding;\nconst f = $('Khung hoa menh de').first().json.output;\nconst enq = (f.retrieval_queries && f.retrieval_queries.en && f.retrieval_queries.en.length) ? f.retrieval_queries.en.join(' ') : f.claim_text_en;\nreturn [{ json: { vectorLiteral: '[' + emb.join(',') + ']', query_text: enq } }];"
+      jsCode: "const f = $('Khung hoa menh de').first().json.output;\nconst en = (f.retrieval_queries && f.retrieval_queries.en) ? f.retrieval_queries.en : [];\nconst enq = en.length ? en[0] : f.claim_text_en;\nconst zeros = new Array(1536).fill(0);\nreturn [{ json: { vectorLiteral: '[' + zeros.join(',') + ']', query_text: enq } }];"
     }
   },
-  output: [{ vectorLiteral: '[0.01,0.02]', query_text: 'oil sampling time ISO 8573-2' }]
+  output: [{ vectorLiteral: '[0,0,...]', query_text: 'Annex 15 re-qualification minor equipment change IQ' }]
 });
 
 const insertClaim = node({
@@ -200,7 +182,7 @@ const judgeModel = languageModel({
 const judgeParser = outputParser({
   type: '@n8n/n8n-nodes-langchain.outputParserStructured',
   version: 1.3,
-  config: { name: 'Parser Trong tai', parameters: { schemaType: 'fromJson', jsonSchemaExample: '{"verdict":"supported","confidence":0.8,"rationale_vi":"...","answer_vi":"...","support_count":2,"refute_count":0,"requires_human_signoff":false,"escalation_target":null,"citations":[{"chunk_id":"...","quote_en":"..."}]}' } }
+  config: { name: 'Parser Trong tai', parameters: { schemaType: 'manual', inputSchema: '{"type":"object","properties":{"verdict":{"type":"string","enum":["supported","conditional","conflicting","outdated","insufficient"]},"confidence":{"type":"number"},"rationale_vi":{"type":"string"},"answer_vi":{"type":"string"},"support_count":{"type":"integer"},"refute_count":{"type":"integer"},"requires_human_signoff":{"type":"boolean"},"escalation_target":{"type":["string","null"]},"citations":{"type":"array","items":{"type":"object","properties":{"chunk_id":{"type":"string"},"quote_en":{"type":"string"}}}}},"required":["verdict","confidence","rationale_vi","answer_vi","support_count","refute_count","requires_human_signoff","citations"]}' } }
 });
 const judgeAgent = node({
   type: '@n8n/n8n-nodes-langchain.agent',
@@ -246,7 +228,6 @@ export default workflow('crave-claim-verification', 'TKTL CRAVE Claim Verificati
   .to(loadPrompts)
   .to(collectPrompts)
   .to(framingAgent)
-  .to(embedQuery)
   .to(buildVector)
   .to(insertClaim)
   .to(hybridSearch)
