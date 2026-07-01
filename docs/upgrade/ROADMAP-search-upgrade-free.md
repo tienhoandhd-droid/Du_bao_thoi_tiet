@@ -17,10 +17,9 @@
 | Nén embedding | **halfvec / binary** (pgvector) | free, gốc |
 | Semantic cache | **bảng pgvector** | free, tự xây |
 | Embedding model | **`text-embedding-3-small` (OpenAI, cloud)** | always-on, rẻ; self-host embedding loại vì máy không 24/7 |
-| LLM — độ chính xác cao / phân tích / phức tạp | **OpenAI** (gpt-4o-mini, nâng model khi cần) | công cụ cần chính xác, phân tích vấn đề, reasoning, sinh câu trả lời chính |
-| LLM — vòng lặp kiểm chính xác cao | **Claude (trong n8n)** | cross-check nhiều lượt, faithfulness judge (accuracy-first) |
-| LLM — tác vụ phụ | **Gemini / Groq / HF free tier** | query rewrite, HyDE, router phân loại, tóm tắt nháp, glossary |
-| Reranker | **LLM-rerank (free-tier hoặc Claude)** — KHÔNG self-host | máy không 24/7 → dùng API thay vì host bge-reranker |
+| LLM — tác vụ KHÓ (độ chính xác cao / phân tích) | **OpenAI** (gpt-4o-mini, nâng model khi cần) | công cụ cần chính xác, phân tích vấn đề, reasoning, sinh câu trả lời chính |
+| LLM — tác vụ DỄ/phụ + vòng lặp kiểm | **Gemini / Groq / HF free tier** | query rewrite, HyDE, router, tóm tắt nháp, glossary; **lặp kiểm nhiều lượt/nhiều model free để tăng chính xác** |
+| Reranker | **LLM-rerank qua API (free-tier)**, OpenAI cho câu khó — KHÔNG self-host | máy không 24/7 → dùng API |
 | OCR/parse (BATCH ingest) | **Docling · PaddleOCR · Tesseract · MinerU** (local, free) | chạy trong khung giờ máy bật hoặc trên server n8n — không cần always-on |
 | Visual retrieval | ~~ColPali/ColQwen self-host~~ **LOẠI cho runtime** (cần host 24/7) | chỉ xét lại nếu có server GPU always-on |
 | Workflow | **n8n self-hosted** (đã có) | chỉ node/credential free |
@@ -32,23 +31,29 @@ Thực tế: **máy không chạy 24/7** (chỉ bật một khoảng mỗi ngày
 server luôn bật). Bỏ Ollama/self-host always-on cho runtime.
 
 **Phân tầng model (multi-AI):**
-- **OpenAI** = **công cụ độ chính xác cao + phân tích vấn đề** + xử lý phức tạp: reasoning/phân tích,
-  sinh câu trả lời câu khó, **embedding** (`text-embedding-3-small`).
-- **Claude (trong n8n)** = **vòng lặp kiểm độ chính xác cao**: cross-check câu trả lời, faithfulness
-  judge, kiểm số/đơn vị/citation nhiều lượt. Chấp nhận chậm (accuracy-first).
-- **Free-tier cloud** (Gemini/Groq/HF) = tác vụ phụ: query rewrite, HyDE, router phân loại, tóm tắt nháp.
+- **OpenAI (trả phí)** = **tác vụ KHÓ**: độ chính xác cao, phân tích vấn đề, reasoning, sinh câu trả
+  lời câu khó, **embedding** (`text-embedding-3-small`).
+- **Free-tier cloud** (Gemini/Groq/HF) = **tác vụ DỄ/phụ**: query rewrite, HyDE, router phân loại,
+  tóm tắt nháp, glossary — và **dùng vòng lặp kiểm duyệt (nhiều lượt / nhiều model free) để tăng độ
+  chính xác** thay cho một model mạnh trả phí.
+- **KHÔNG dùng Claude** trong stack (đã loại).
 - **Self-host free** (Docling/PaddleOCR/MinerU) = **chỉ batch ingest** trong khung giờ máy bật / trên server.
 
-**Mẫu "chồng AI + vòng lặp kiểm" (cho tác vụ chính xác cao, không ưu tiên thời gian):**
+**Hai mẫu dùng AI:**
+
+1. **Tác vụ khó → OpenAI trực tiếp** (một lượt, chất lượng cao): sinh câu trả lời câu khó, phân tích.
+
+2. **Tác vụ dễ/phụ → free-tier + vòng lặp kiểm duyệt** (bù chất lượng bằng số lượt, vì free rẻ):
 ```
-Nội dung GMP quan trọng ─► sinh bằng OpenAI
-   ─► N vòng kiểm chéo (Claude + free-tier), mỗi model 1 lens:
+Tác vụ phụ (rewrite/HyDE/tóm tắt/kiểm citation)
+   ─► free-tier sinh nháp
+   ─► N vòng kiểm chéo bằng free-tier (nhiều lượt / nhiều model free), mỗi lượt 1 lens:
         · đúng dữ kiện (grounded)   · đủ citation   · đúng số/đơn vị
-   ─► bất đồng? ─► lặp tinh chỉnh tới khi hội tụ HOẶC chuyển human sign-off
+   ─► bất đồng? lặp tới khi hội tụ; nếu là nội dung GMP tới hạn → escalate OpenAI hoặc human sign-off
    ─► ghi mọi vòng vào audit append-only
 ```
-Đây là mở rộng chính sách đồng thuận §3.5 (đa engine cho bảng/hình) lên **tầng câu trả lời** — dùng
-cho câu hỏi rủi ro cao (thẩm định, số liệu tới hạn), nơi bạn ưu tiên đúng hơn nhanh.
+Đây là mở rộng chính sách đồng thuận §3.5 (đa engine cho bảng/hình) lên **tầng câu trả lời**: câu rủi
+ro cao ưu tiên OpenAI; phần phụ dùng vòng lặp free để đạt chính xác mà vẫn tiết kiệm.
 
 ---
 
@@ -80,8 +85,8 @@ staging → **đồng thuận đa engine → AL** → schema `document_tables`/`
 ### GIAI ĐOẠN 0 — Nền tảng & tài khoản free (1–2 ngày)
 | # | Việc | Công cụ free | Ai làm | DoD |
 |---|---|---|---|---|
-|0.1| ✅ Chốt chiến lược AI (OpenAI phức tạp · Claude vòng lặp · free-tier phụ) | — | ✅ xong | Đã ghi §0 |
-|0.2| Tạo credential n8n free-tier phụ (Gemini/Groq/HF) + xác nhận credential OpenAI & Claude sẵn có | free tier | 🔵+🟡 | Credential n8n sạch, không hard-code |
+|0.1| ✅ Chốt chiến lược AI (OpenAI tác vụ khó · free-tier + vòng lặp kiểm cho phụ; KHÔNG Claude) | — | ✅ xong | Đã ghi §0 |
+|0.2| Tạo credential n8n free-tier phụ (Gemini/Groq/HF) + xác nhận credential OpenAI sẵn có | free tier | 🔵+🟡 | Credential n8n sạch, không hard-code |
 |0.3| Xác định **khung giờ máy bật** cho batch ingest (OCR/parse/embedding corpus) | — | 🔵 | Lịch chạy batch |
 |0.4| Kiểm extension free khả dụng trên Supabase (`pg_trgm`…) | Supabase | 🟢 | Danh sách extension |
 
@@ -151,7 +156,7 @@ permission leakage=0 · secret scan 0. Cấm sửa số để "làm xanh".
 - Mọi AI output GMP = DRAFT; human sign-off bắt buộc; audit append-only.
 
 ## 6. Việc cần BẠN quyết/chuẩn bị
-1. ✅ Chiến lược AI đã chốt (OpenAI độ-chính-xác-cao/phân-tích · Claude vòng lặp kiểm · free-tier phụ).
-2. Tạo free-tier account phụ (Gemini/Groq/HF) → đưa credential vào n8n (OpenAI & Claude đã có).
+1. ✅ Chiến lược AI đã chốt (OpenAI cho tác vụ khó · free-tier + vòng lặp kiểm cho phụ; KHÔNG Claude).
+2. Tạo free-tier account phụ (Gemini/Groq/HF) → đưa credential vào n8n (OpenAI đã có).
 3. Xác định **khung giờ máy bật** cho batch ingest (OCR/parse/embedding corpus).
 4. **Corpus thật** (mapping `document_code → drive_file_id`) để mở retrieval production.
