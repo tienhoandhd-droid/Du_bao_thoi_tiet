@@ -33,15 +33,27 @@ Free lo **bề rộng** (nhiều góc nhìn), OpenAI lo **1 lượt tổng hợp
 **Vai trò model (đúng §0 roadmap):** proposer = free-tier (Gemini/Groq/HF); aggregator = OpenAI (1 call/câu).
 Câu không tới hạn có thể để aggregator cũng là free (fallback) để tiết kiệm.
 
-## M8 — Dịch song ngữ DeepL + glossary dược
+## M8 — Dịch song ngữ (chiến lược quota-aware, DeepL chỉ là lớp phụ)
 
-- **DeepL API** (free 500k ký tự/tháng) thay LLM tự dịch: nhất quán thuật ngữ, có use-case dược phẩm.
-- **Glossary DeepL** bơm từ bảng `glossary_terms` (VI↔EN) → ép dịch đúng: *worst-case, hold time,
-  requalification, oil aerosol vs oil vapor…* Không để mỗi lượt LLM dịch một kiểu.
-- Luồng: truy vấn **VI→EN** (trước retrieval) · đáp án **EN→VI** (giữ trích dẫn EN gốc song song).
-- n8n: node DeepL (hoặc HTTP `api-free.deepl.com/v2/translate` + `glossary_id`). **Cần bạn tạo tài khoản
-  DeepL API Free** → mình gắn credential + tạo glossary từ `glossary_terms`.
-- Fallback khi hết quota: LLM-dịch có kèm glossary trong prompt.
+**Bối cảnh:** DeepL của user chỉ free ~1 tháng + 1 triệu ký tự. Giải: **không để DeepL làm xương sống.**
+Khối lượng dịch trong CRAVE rất nhỏ (truy vấn + trích đoạn ngắn, KHÔNG dịch cả tài liệu), và phần lớn đã miễn phí.
+
+**Dịch phân tầng (rẻ → đắt, dừng khi đủ tốt):**
+1. **Glossary translation-memory (miễn phí, ưu tiên 1):** bảng `translation_cache` + `glossary_terms` — mỗi
+   cụm từ/thuật ngữ chỉ dịch MỘT LẦN, lưu lại, tái dùng mãi. Thuật ngữ dược đã có trong glossary → tra bảng, 0 ký tự API.
+2. **LLM + glossary (miễn phí, ưu tiên 2):** framing LLM ĐÃ sinh `claim_text_en`; aggregator ĐÃ xuất `answer_vi`.
+   Đa số nhu cầu dịch được lo bằng free-tier sẵn có (Gemini/Groq) kèm glossary trong prompt.
+3. **DeepL (quota, ưu tiên 3 — chỉ khi tới hạn):** chỉ gọi để **kiểm/chuẩn hoá thuật ngữ then chốt** (câu GMP
+   rủi ro cao, số/đơn vị/tên tiêu chuẩn) — vài chục ký tự/lần. Kết quả cache vào `translation_cache` → không gọi lại.
+4. **Fallback khi hết DeepL:** NLLB-200 qua **HF Inference** (miễn phí, đã có tài khoản HF) hoặc **LibreTranslate**
+   self-host (không giới hạn) cho batch.
+
+**Vì sao 1 triệu ký tự là "vô hạn" ở đây:** chỉ dịch truy vấn (~50–150 ký tự) và trích đoạn then chốt, lại được
+`translation_cache` chặn trùng → thực tế tiêu vài nghìn ký tự/tháng. DeepL để dành cho việc quan trọng nhất: nhất quán
+thuật ngữ chuyên ngành.
+
+- n8n: HTTP `api-free.deepl.com/v2/translate` + `glossary_id` (credential DeepL của user). Glossary tạo 1 lần từ `glossary_terms`.
+- **GMP:** trích dẫn luôn giữ EN gốc; bản dịch VI gắn nhãn "không chính thức".
 
 ## M9 — Câu trả lời tiến dần (FunnelRAG + streaming)
 
