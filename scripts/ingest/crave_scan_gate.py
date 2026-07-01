@@ -1,25 +1,20 @@
 #!/usr/bin/env python3
-"""CRAVE — Cổng quét đa engine TRƯỚC KHI DUYỆT (scan-before-approve gate).
+"""CRAVE — Cổng quét đa engine ĐỘC LẬP + thang retry/AL, TRƯỚC KHI DUYỆT.
 
-Hợp nhất phương pháp đa engine đã định (R05-A06/A26/A29) thành một cổng chạy
-được, dùng cho MỌI tài liệu trước khi accession vào corpus:
+Hiện thực `docs/governance/high-accuracy-ensemble-policy.md` cho lane nạp tài liệu:
 
-  1) Render trang bằng pypdfium2 (local, không cần poppler).
-  2) Chạy nhiều "hình thức quét" độc lập trên mỗi trang mẫu:
-       - native  : text-layer của PDF (pypdfium2.get_textpage)
-       - vision_accurate : Apple Vision OCR (accurate) — on-device, riêng tư
-       - vision_fast     : Apple Vision OCR (fast)     — pass thứ hai để đối chiếu
-     (Tesseract/RapidOCR/MinerU có thể cắm thêm sau — cùng schema record.)
-  3) Đồng thuận có trọng số số/đơn vị (numeric/unit-aware) giữa các engine.
-  4) Kết luận trạng thái review, KHÔNG BAO GIỜ auto-approve:
-       - PASS_CANDIDATE           : có text-layer + OCR đồng thuận
-       - OCR_CONSENSUS_CANDIDATE  : ảnh scan; ≥2 pass OCR đồng thuận
-       - NEEDS_HUMAN_REVIEW       : bất đồng / confidence thấp
-       - FAIL_EXTRACT             : không trích được nội dung
-  Mọi record: human_approved=false, ai_use_allowed=false, remote_mutation=false.
+  [1] Quét đa engine SONG SONG, ĐỘC LẬP (khác nhà → khác kiểu lỗi):
+        - native  : PDF text-layer (pypdfium2)          — neo born-digital
+        - apple   : Apple Vision OCR (on-device, riêng tư)
+        - rapidocr: RapidOCR/PP-OCR (ONNX, khác nhà Apple) — độc lập thật
+  [2] Tổng hợp: similarity ≥ ngưỡng + số/đơn vị khớp tuyệt đối (numeric-aware).
+  [3] Chưa đạt ⇒ RETRY tăng DPI (300→400→600) / (chỗ để thêm engine).
+  [4] Hết thang vẫn lệch ⇒ AL_ADJUDICATION: chuyển panel AL so BẢN GỐC (n8n
+      MoA free-vision) + human — KHÔNG auto-approve tại đây.
+  [5] Human duyệt (ngoài script). Mọi record: human_approved=false.
 
-Không upload nội dung GMP lên cloud (OCR chạy local). Không ghi Supabase/n8n.
-Bước accession chỉ được chạy sau khi con người duyệt record trong hàng đợi.
+Cấm coi hai pass CÙNG một engine là hai phiếu độc lập. OCR chạy on-device/local,
+không upload nội dung GMP lên cloud. Không ghi Supabase/n8n.
 """
 
 from __future__ import annotations
@@ -40,23 +35,17 @@ import pypdfium2 as pdfium
 
 ROOT = Path(__file__).resolve().parents[2]  # scripts/ingest/<file> -> repo root
 VISION_SOURCE = ROOT / "scripts/r05_a26_macos_vision_ocr.m"
-GATE = "CRAVE_SCAN_GATE_V1"
-SCHEMA_VERSION = 1
+GATE = "CRAVE_SCAN_GATE_V2"
+SCHEMA_VERSION = 2
 
-# Ngưỡng đồng thuận (giữ bảo thủ như A26).
-MIN_OCR_WORDS = 8          # dưới mức này coi như trang gần trống
-MIN_SIMILARITY = 0.90      # tương đồng chuỗi tối thiểu giữa 2 engine
-MAX_NUM_DELTA = 0          # số/đơn vị tới hạn phải khớp tuyệt đối
-NATIVE_TEXT_MIN_CHARS = 40  # native text-layer coi là "có" khi vượt mức này
-
-PASS_SPECS = (
-    {"pass_id": "native", "engine": "pdf_text_layer", "dpi": 0, "mode": "native"},
-    {"pass_id": "vision_accurate", "engine": "apple_vision", "dpi": 300, "mode": "accurate"},
-    {"pass_id": "vision_fast", "engine": "apple_vision", "dpi": 200, "mode": "fast"},
-)
+# Ngưỡng đồng thuận (bảo thủ theo A26).
+MIN_OCR_WORDS = 8            # dưới mức này coi như trang gần trống
+MIN_SIMILARITY = 0.90        # tương đồng chuỗi tối thiểu giữa 2 engine ĐỘC LẬP
+MAX_NUM_DELTA = 0            # số/đơn vị tới hạn phải khớp tuyệt đối
+NATIVE_TEXT_MIN_CHARS = 40   # coi là có text-layer khi vượt mức này
+DPI_LADDER = (300, 400, 600)  # [3] tăng chất lượng khi chưa đồng thuận
 
 TOKEN_RE = re.compile(r"[^\W\d_]+|\d+(?:[.,]\d+)*", re.UNICODE)
-# Số kèm đơn vị/ký hiệu tới hạn GMP (m/s, µm, Pa, %, °C, ISO class ...).
 NUMERIC_RE = re.compile(
     r"[+-]?\d+(?:[.,]\d+)*\s?(?:%|°?[CF]\b|µm|um|nm|mm|cm|m/s|m3|m³|Pa|kPa|ppm|"
     r"CFU|cfu|h\b|min\b|s\b|mL|ml|L\b|kg|g\b|mg|µg)?",
@@ -78,16 +67,11 @@ def sha256_file(path: Path) -> str:
 
 def normalize(value: str) -> str:
     value = unicodedata.normalize("NFKC", value or "").casefold()
-    value = re.sub(r"\s+", " ", value)
-    return value.strip()
-
-
-def tokens(value: str) -> list[str]:
-    return TOKEN_RE.findall(normalize(value))
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def numeric_tokens(value: str) -> set[str]:
-    out = set()
+    out: set[str] = set()
     for match in NUMERIC_RE.findall(value or ""):
         token = re.sub(r"\s+", "", match).casefold()
         if any(ch.isdigit() for ch in token):
@@ -104,13 +88,24 @@ def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, na, nb).ratio()
 
 
+def compare(a_text: str, b_text: str) -> dict[str, Any]:
+    sim = similarity(a_text, b_text)
+    diff = sorted(numeric_tokens(a_text) ^ numeric_tokens(b_text))
+    return {
+        "similarity": round(sim, 4),
+        "numeric_symmetric_diff": diff[:20],
+        "numeric_disagreements": len(diff),
+        "agree": sim >= MIN_SIMILARITY and len(diff) <= MAX_NUM_DELTA,
+    }
+
+
 # --------------------------------------------------------------------------- #
-# Engines
+# Engines (độc lập)
 # --------------------------------------------------------------------------- #
 def compile_vision_tool(output_path: Path) -> dict[str, Any]:
     clang = shutil.which("clang")
     if not clang:
-        raise RuntimeError("clang không khả dụng; không compile được Vision OCR.")
+        raise RuntimeError("clang không khả dụng; không compile được Apple Vision OCR.")
     if not VISION_SOURCE.is_file():
         raise RuntimeError(f"Thiếu nguồn Vision OCR: {VISION_SOURCE}")
     command = [
@@ -122,17 +117,13 @@ def compile_vision_tool(output_path: Path) -> dict[str, Any]:
     completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
     if completed.returncode != 0:
         raise RuntimeError(f"Compile Vision OCR lỗi: {completed.stderr.strip()}")
-    return {
-        "compiler": clang,
-        "source_sha256": sha256_file(VISION_SOURCE),
-        "binary_sha256": sha256_file(output_path),
-    }
+    return {"compiler": clang, "source_sha256": sha256_file(VISION_SOURCE),
+            "binary_sha256": sha256_file(output_path)}
 
 
 def render_page_png(document: "pdfium.PdfDocument", page_index: int, dpi: int, out: Path) -> Path:
     page = document[page_index]
-    bitmap = page.render(scale=dpi / 72.0, rotation=0)
-    image = bitmap.to_pil().convert("RGB")
+    image = page.render(scale=dpi / 72.0, rotation=0).to_pil().convert("RGB")
     image.save(out, format="PNG")
     return out
 
@@ -145,83 +136,125 @@ def native_text(document: "pdfium.PdfDocument", page_index: int) -> str:
         textpage.close()
 
 
-def run_vision(executable: Path, image_path: Path, mode: str, languages: str) -> dict[str, Any]:
-    command = [str(executable), str(image_path), mode, languages]
+def run_apple_vision(executable: Path, image_path: Path, languages: str) -> dict[str, Any]:
+    command = [str(executable), str(image_path), "accurate", languages]
     completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
     if completed.returncode != 0:
-        raise RuntimeError(f"Vision {mode} lỗi: {(completed.stderr or completed.stdout).strip()}")
+        raise RuntimeError(f"Apple Vision lỗi: {(completed.stderr or completed.stdout).strip()}")
     payload = json.loads(completed.stdout)
     return {
-        "text": str(payload.get("text", "")),
-        "char_count": int(payload.get("char_count") or 0),
+        "engine": "apple_vision", "text": str(payload.get("text", "")),
         "word_count": int(payload.get("word_count") or 0),
         "mean_confidence": round(float(payload.get("mean_confidence") or 0.0), 6),
     }
 
 
-# --------------------------------------------------------------------------- #
-# Consensus
-# --------------------------------------------------------------------------- #
-def compare_pass_pair(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
-    sim = similarity(a["text"], b["text"])
-    num_a, num_b = numeric_tokens(a["text"]), numeric_tokens(b["text"])
-    num_missing = sorted((num_a ^ num_b))
+_RAPID_ENGINE = None
+
+
+def run_rapidocr(image_path: Path) -> dict[str, Any]:
+    global _RAPID_ENGINE
+    if _RAPID_ENGINE is None:
+        from rapidocr_onnxruntime import RapidOCR  # lazy: model load chậm
+        _RAPID_ENGINE = RapidOCR()
+    result, _ = _RAPID_ENGINE(str(image_path))
+    lines = result or []
+    # Sắp theo thứ tự đọc (trên→dưới) rồi ghép.
+    ordered = sorted(lines, key=lambda ln: (round(min(p[1] for p in ln[0]) / 20), min(p[0] for p in ln[0])))
+    text = "\n".join(str(ln[1]) for ln in ordered)
+    confs = [float(ln[2]) for ln in lines if len(ln) > 2]
     return {
-        "pair": f'{a["pass_id"]}~{b["pass_id"]}',
-        "similarity": round(sim, 4),
-        "numeric_symmetric_diff": num_missing[:20],
-        "numeric_disagreements": len(num_missing),
-        "agree": sim >= MIN_SIMILARITY and len(num_missing) <= MAX_NUM_DELTA,
+        "engine": "rapidocr", "text": text,
+        "word_count": len(text.split()),
+        "mean_confidence": round(sum(confs) / len(confs), 6) if confs else 0.0,
     }
 
 
-def decide_page(passes: list[dict[str, Any]]) -> dict[str, Any]:
-    native = next((p for p in passes if p["pass_id"] == "native"), None)
-    ocr = [p for p in passes if p["engine"] == "apple_vision"]
-    native_present = bool(native) and len(normalize(native["text"])) >= NATIVE_TEXT_MIN_CHARS
-    ocr_present = [p for p in ocr if p["word_count"] >= MIN_OCR_WORDS]
+# --------------------------------------------------------------------------- #
+# Quyết định 1 vòng (1 mức DPI)
+# --------------------------------------------------------------------------- #
+def decide_round(native: str, apple: dict[str, Any], rapid: dict[str, Any]) -> dict[str, Any]:
+    native_present = len(normalize(native)) >= NATIVE_TEXT_MIN_CHARS
+    ocr_ready = [e for e in (apple, rapid) if e["word_count"] >= MIN_OCR_WORDS]
 
     comparisons: list[dict[str, Any]] = []
-    # OCR pass đối chiếu nhau (cross-check cho ảnh scan).
-    for i in range(len(ocr_present)):
-        for j in range(i + 1, len(ocr_present)):
-            comparisons.append(compare_pass_pair(ocr_present[i], ocr_present[j]))
-    # Native đối chiếu OCR tốt nhất (khi có text-layer).
-    if native_present and ocr_present:
-        best = max(ocr_present, key=lambda p: p["word_count"])
-        comparisons.append(compare_pass_pair(native, best))
+    # [2] hai engine OCR ĐỘC LẬP đối chiếu (apple vs rapid) — cross-check ảnh scan.
+    ocr_agree = False
+    if apple["word_count"] >= MIN_OCR_WORDS and rapid["word_count"] >= MIN_OCR_WORDS:
+        c = {"pair": "apple_vision~rapidocr", **compare(apple["text"], rapid["text"])}
+        comparisons.append(c)
+        ocr_agree = c["agree"]
+    # native neo với OCR tốt nhất (khi có text-layer).
+    native_ocr_agree = False
+    if native_present and ocr_ready:
+        best = max(ocr_ready, key=lambda e: e["word_count"])
+        c = {"pair": f'native~{best["engine"]}', **compare(native, best["text"])}
+        comparisons.append(c)
+        native_ocr_agree = c["agree"]
 
-    ocr_pair_agree = [c for c in comparisons if "~vision" in c["pair"] or c["pair"].startswith("vision")]
-    ocr_consensus = any(c["agree"] for c in ocr_pair_agree if "native" not in c["pair"])
-    native_ocr_agree = any(c["agree"] for c in comparisons if "native" in c["pair"])
-
-    if native_present and (native_ocr_agree or not ocr_present):
+    if native_present and (native_ocr_agree or not ocr_ready):
         status = "PASS_CANDIDATE"
-    elif not native_present and ocr_present and ocr_consensus:
+    elif not native_present and ocr_agree:
         status = "OCR_CONSENSUS_CANDIDATE"
-    elif not native_present and not ocr_present:
+    elif not native_present and not ocr_ready:
         status = "FAIL_EXTRACT"
     else:
-        status = "NEEDS_HUMAN_REVIEW"
+        status = "RETRY"  # còn dư địa tăng DPI/đổi cách
+    return {"native_present": native_present, "comparisons": comparisons, "status": status}
 
-    return {
-        "native_present": native_present,
-        "ocr_pass_count": len(ocr_present),
-        "comparisons": comparisons,
-        "status": status,
-    }
+
+TERMINAL_PASS = {"PASS_CANDIDATE", "OCR_CONSENSUS_CANDIDATE"}
 
 
 # --------------------------------------------------------------------------- #
-# Driver
+# Driver: thang [1]→[3], hết thang → [4] AL
 # --------------------------------------------------------------------------- #
+def scan_page(document, page_index, vision_bin, languages, tmp_dir) -> dict[str, Any]:
+    native = native_text(document, page_index)
+    rounds: list[dict[str, Any]] = []
+    final_status = "FAIL_EXTRACT"
+    for dpi in DPI_LADDER:
+        img = render_page_png(document, page_index, dpi, tmp_dir / f"p{page_index}_{dpi}.png")
+        apple = run_apple_vision(vision_bin, img, languages)
+        rapid = run_rapidocr(img)
+        img.unlink(missing_ok=True)
+        decision = decide_round(native, apple, rapid)
+        rounds.append({
+            "dpi": dpi,
+            "engines": [
+                {"engine": "native", "word_count": len(native.split()),
+                 "mean_confidence": 1.0 if native.strip() else 0.0,
+                 "preview": " ".join(native.split())[:140], "text_sha256": sha256_text(native)},
+                {"engine": "apple_vision", "word_count": apple["word_count"],
+                 "mean_confidence": apple["mean_confidence"],
+                 "preview": " ".join(apple["text"].split())[:140], "text_sha256": sha256_text(apple["text"])},
+                {"engine": "rapidocr", "word_count": rapid["word_count"],
+                 "mean_confidence": rapid["mean_confidence"],
+                 "preview": " ".join(rapid["text"].split())[:140], "text_sha256": sha256_text(rapid["text"])},
+            ],
+            "comparisons": decision["comparisons"],
+            "native_present": decision["native_present"],
+            "status": decision["status"],
+        })
+        final_status = decision["status"]
+        if final_status in TERMINAL_PASS or final_status == "FAIL_EXTRACT":
+            break  # đạt (hoặc không trích được) → dừng thang
+        # RETRY → tăng DPI vòng sau
+    else:
+        # Hết thang mà vẫn RETRY ⇒ [4] AL adjudication so bản gốc.
+        final_status = "AL_ADJUDICATION"
+    if final_status == "RETRY":
+        final_status = "AL_ADJUDICATION"
+    return {"page_1based": page_index + 1, "rounds": rounds, "status": final_status,
+            "al_required": final_status == "AL_ADJUDICATION"}
+
+
 def sample_pages(total: int, requested: str | None) -> list[int]:
     if requested:
         idx = sorted({int(x) - 1 for x in requested.split(",") if x.strip()})
         return [i for i in idx if 0 <= i < total]
     if total <= 5:
         return list(range(total))
-    # Đầu / giữa / cuối để lấy mẫu đại diện.
     return sorted({0, total // 4, total // 2, (3 * total) // 4, total - 1})
 
 
@@ -229,84 +262,43 @@ def scan_pdf(pdf_path: Path, document_code: str, languages: str, pages_arg: str 
     document = pdfium.PdfDocument(str(pdf_path))
     total = len(document)
     pages = sample_pages(total, pages_arg)
-
     with tempfile.TemporaryDirectory(prefix="crave_scan_") as tmp:
         tmp_dir = Path(tmp)
         vision_bin = tmp_dir / "vision_ocr"
         compiler_evidence = compile_vision_tool(vision_bin)
+        page_records = [scan_page(document, i, vision_bin, languages, tmp_dir) for i in pages]
 
-        page_records: list[dict[str, Any]] = []
-        for page_index in pages:
-            passes: list[dict[str, Any]] = []
-            # Engine 1: native text-layer
-            ntext = native_text(document, page_index)
-            passes.append({
-                "pass_id": "native", "engine": "pdf_text_layer", "dpi": 0, "mode": "native",
-                "text": ntext, "char_count": len(ntext),
-                "word_count": len(ntext.split()), "mean_confidence": 1.0 if ntext.strip() else 0.0,
-                "text_sha256": sha256_text(ntext),
-            })
-            # Engine 2+3: Apple Vision (accurate 300dpi, fast 200dpi)
-            for spec in PASS_SPECS:
-                if spec["engine"] != "apple_vision":
-                    continue
-                img = render_page_png(document, page_index, spec["dpi"], tmp_dir / f"p{page_index}_{spec['pass_id']}.png")
-                res = run_vision(vision_bin, img, spec["mode"], languages)
-                img.unlink(missing_ok=True)
-                passes.append({
-                    "pass_id": spec["pass_id"], "engine": "apple_vision",
-                    "dpi": spec["dpi"], "mode": spec["mode"],
-                    "text": res["text"], "char_count": res["char_count"],
-                    "word_count": res["word_count"], "mean_confidence": res["mean_confidence"],
-                    "text_sha256": sha256_text(res["text"]),
-                })
-            decision = decide_page(passes)
-            page_records.append({
-                "page_1based": page_index + 1,
-                "engines": [
-                    {k: v for k, v in p.items() if k != "text"} | {"preview": " ".join(p["text"].split())[:160]}
-                    for p in passes
-                ],
-                **decision,
-            })
-
-    statuses = [r["status"] for r in page_records]
-    order = ["FAIL_EXTRACT", "NEEDS_HUMAN_REVIEW", "OCR_CONSENSUS_CANDIDATE", "PASS_CANDIDATE"]
-    worst = min(statuses, key=lambda s: order.index(s)) if statuses else "FAIL_EXTRACT"
-    doc_status = {
-        "PASS_CANDIDATE": "PASS_CANDIDATE",
-        "OCR_CONSENSUS_CANDIDATE": "OCR_CONSENSUS_CANDIDATE",
-    }.get(worst, "NEEDS_HUMAN_REVIEW" if worst != "FAIL_EXTRACT" else "FAIL_EXTRACT")
-
+    order = ["FAIL_EXTRACT", "AL_ADJUDICATION", "NEEDS_HUMAN_REVIEW",
+             "OCR_CONSENSUS_CANDIDATE", "PASS_CANDIDATE"]
+    statuses = [r["status"] for r in page_records] or ["FAIL_EXTRACT"]
+    doc_status = min(statuses, key=lambda s: order.index(s) if s in order else 0)
     return {
-        "gate": GATE,
-        "schema_version": SCHEMA_VERSION,
-        "document_code": document_code,
-        "source_file": pdf_path.name,
+        "gate": GATE, "schema_version": SCHEMA_VERSION,
+        "policy": "docs/governance/high-accuracy-ensemble-policy.md",
+        "document_code": document_code, "source_file": pdf_path.name,
         "source_sha256": sha256_file(pdf_path),
-        "page_count": total,
-        "sampled_pages": [p + 1 for p in pages],
+        "page_count": total, "sampled_pages": [p + 1 for p in pages],
         "compiler_evidence": compiler_evidence,
-        "engines_used": ["pdf_text_layer", "apple_vision(accurate)", "apple_vision(fast)"],
+        "engines_independent": ["pdf_text_layer(pypdfium2)", "apple_vision(on-device)", "rapidocr(onnx)"],
+        "dpi_ladder": list(DPI_LADDER),
         "page_records": page_records,
         "document_review_status": doc_status,
-        "human_approved": False,
-        "ai_use_allowed": False,
-        "remote_mutation_allowed": False,
+        "al_pages": [r["page_1based"] for r in page_records if r["status"] == "AL_ADJUDICATION"],
+        "human_approved": False, "ai_use_allowed": False, "remote_mutation_allowed": False,
         "note": (
-            "Không auto-approve. Chỉ con người duyệt mới được accession. "
-            "OCR chạy on-device (Apple Vision), không upload nội dung GMP lên cloud."
+            "Đa engine độc lập → tổng hợp numeric-aware → retry tăng DPI → AL so bản gốc → "
+            "human duyệt. Không auto-approve. OCR on-device, không upload GMP lên cloud."
         ),
     }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="CRAVE multi-engine scan-before-approve gate")
-    parser.add_argument("pdf", type=Path, help="Đường dẫn PDF local")
-    parser.add_argument("--code", required=True, help="document_code (vd LV-BSC-A2)")
-    parser.add_argument("--languages", default="vi,en", help="OCR languages CSV")
-    parser.add_argument("--pages", default=None, help="1-based CSV, vd '1,3,7'; mặc định lấy mẫu")
-    parser.add_argument("--out", type=Path, default=None, help="Ghi report JSON ra file")
+    parser = argparse.ArgumentParser(description="CRAVE multi-engine scan-before-approve gate v2")
+    parser.add_argument("pdf", type=Path)
+    parser.add_argument("--code", required=True)
+    parser.add_argument("--languages", default="vi,en")
+    parser.add_argument("--pages", default=None, help="1-based CSV, vd '1,7,12'")
+    parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args()
 
 
