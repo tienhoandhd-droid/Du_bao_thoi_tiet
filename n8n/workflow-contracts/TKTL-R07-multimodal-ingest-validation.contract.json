@@ -1,0 +1,55 @@
+{
+  "contract_version": 1,
+  "live_status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "name": "TKTL R07 Multimodal Ingest Validation",
+  "production_write_default": "DENY",
+  "required_ocr_engines": 3,
+  "states": [
+    "RECEIVED",
+    "HASH_VERIFIED",
+    "RENDERED",
+    "OCR_COMPLETE",
+    "VALIDATED",
+    "READY_FOR_HUMAN_QA",
+    "APPROVED_FOR_INDEXING",
+    "QUARANTINED"
+  ],
+  "critical_fields": [
+    "number",
+    "decimal_separator",
+    "sign",
+    "unit",
+    "section_reference",
+    "table_cell",
+    "diagram_label"
+  ],
+  "promotion_assertions": [
+    "same_raw_sha256",
+    "same_page_image_sha256",
+    "all_required_engine_branches_present",
+    "expected_page_and_element_counts_match",
+    "critical_tokens_unanimous",
+    "layout_and_reading_order_valid",
+    "table_structure_valid_when_present",
+    "source_crops_hash_verified",
+    "human_qa_approved_for_gmp_critical_content",
+    "current_document_version",
+    "license_allowed_or_curated",
+    "approved_for_ai_use"
+  ],
+  "on_missing_or_failed_assertion": {
+    "state": "QUARANTINED",
+    "production_write": false,
+    "append_audit_event": true
+  },
+  "table_dashboard": {
+    "canonical_format": "structured_cell_json",
+    "rendering": "react_components_no_raw_html",
+    "source_crop_required": true
+  },
+  "visual_search": {
+    "private_assets": true,
+    "version_and_license_gate_required": true,
+    "source_page_citation_required": true
+  }
+}

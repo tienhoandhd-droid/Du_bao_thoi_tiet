@@ -189,6 +189,19 @@ function sourceTypeClass(sourceType?: string): string {
   }
 }
 
+function sourceTypeLabel(sourceType?: string): string {
+  switch (sourceType) {
+    case "internal_sop":
+      return "SOP nội bộ";
+    case "guideline":
+      return "Tài liệu tham khảo";
+    case "equipment_doc":
+      return "Tài liệu thiết bị";
+    default:
+      return sourceType || "Chưa phân loại";
+  }
+}
+
 function groundedClass(grounded?: boolean): string {
   return grounded
     ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
@@ -1405,6 +1418,11 @@ function DocumentsPage({
       {loading ? <StateBlock>Đang tải...</StateBlock> : null}
 
       <Panel title="Danh sách tài liệu">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Tài liệu tham khảo từ Drive được hiển thị tách biệt với SOP nội bộ. Mục
+          “Chờ review” không được dùng làm căn cứ quyết định GMP hoặc nguồn cho AI
+          cho tới khi đủ lineage, review và index.
+        </p>
         {documents.length ? (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-sm">
@@ -1413,9 +1431,11 @@ function DocumentsPage({
                   <Th>Mã</Th>
                   <Th>Tên</Th>
                   <Th>Loại</Th>
+                  <Th>Nguồn</Th>
                   <Th>Ngôn ngữ</Th>
                   <Th>Phiên bản</Th>
                   <Th>Trạng thái</Th>
+                  <Th>AI</Th>
                   <Th>Chunks</Th>
                 </tr>
               </thead>
@@ -1428,6 +1448,11 @@ function DocumentsPage({
                     <Td>{formatValue(document.document_title)}</Td>
                     <Td>{formatValue(document.document_type)}</Td>
                     <Td>
+                      <Badge className={sourceTypeClass(document.source_type)}>
+                        {sourceTypeLabel(document.source_type)}
+                      </Badge>
+                    </Td>
+                    <Td>
                       <Badge className="bg-slate-100 text-slate-700">
                         {formatValue(document.language_code)}
                       </Badge>
@@ -1436,6 +1461,17 @@ function DocumentsPage({
                     <Td>
                       <Badge className={documentStatusClass(String(document.status || ""))}>
                         {STATUS_LABELS[String(document.status || "")] || String(document.status || "-")}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Badge
+                        className={
+                          document.approved_for_ai_use
+                            ? "bg-emerald-500/10 text-emerald-700"
+                            : "bg-amber-500/10 text-amber-700"
+                        }
+                      >
+                        {document.approved_for_ai_use ? "Sẵn sàng AI" : "Chờ review"}
                       </Badge>
                     </Td>
                     <Td>{document.chunk_count ?? 0}</Td>

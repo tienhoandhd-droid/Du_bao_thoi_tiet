@@ -1,0 +1,239 @@
+{
+  "contract_version": 1,
+  "action": "R05-A09",
+  "name": "TKTL Workflow P Table Figure Staging Review",
+  "live_status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "project_ref": "bdttccztjtrcaztjgkot",
+  "workflow_scope": "TKTL_ONLY",
+  "production_write_default": "DENY",
+  "approval_required_before_live": true,
+  "source_evidence": {
+    "benchmark_action": "R05-A08",
+    "summary_file": "docs/checkpoints/search-upgrade/r05-a08-page7-engine-summary.json",
+    "checkpoint_file": "docs/checkpoints/search-upgrade/R05-A08-page7-table-figure-benchmark.md",
+    "drive_file_id": "1PqmkUQUXLL6N3CgzEv-_xOPGH10n_4cb",
+    "source_pdf_sha256": "9de58a48669e4f00c6b4e284cd435a5000e03e6ee4b7c3c37121a1289ff6a828",
+    "page_number": 7,
+    "page_render_300dpi_sha256": "021f35494b12a0d322b6d1c9f50ecf6404f028c4ccb1bca1a3390ba3f4a00fbe",
+    "page_render_400dpi_sha256": "b2e4209db08ca5896598934b04579dda11b1e50b8177f3cc67c06a06d595493a",
+    "table_crop": {
+      "bbox_px_300dpi": [301, 1836, 2249, 2829],
+      "sha256": "c6e8c1366b908a369081a4ca871bcd6d4a66c972dc14ee3195c1e372d0fd85ec",
+      "review_role": "primary_source_truth_for_table"
+    },
+    "figure_crop": {
+      "bbox_px_300dpi": [611, 537, 2003, 1669],
+      "sha256": "b7aca60ff9ac172f8f210dad53c86537ec76630ce795e04b7f10417a13efd535",
+      "review_role": "primary_source_truth_for_figure"
+    }
+  },
+  "state_machine": {
+    "initial": "RECEIVED",
+    "terminal": ["APPROVED_FOR_INDEXING", "QUARANTINED"],
+    "states": [
+      "RECEIVED",
+      "RAW_HASH_VERIFIED",
+      "DOCUMENT_VERSION_MATCHED",
+      "PAGE_RENDERED",
+      "ELEMENT_CROPS_HASHED",
+      "ENGINES_COMPLETE",
+      "STAGED_FOR_REVIEW",
+      "READY_FOR_HUMAN_QA",
+      "APPROVED_FOR_INDEXING",
+      "QUARANTINED"
+    ],
+    "on_engine_disagreement": "READY_FOR_HUMAN_QA",
+    "on_missing_source_crop_hash": "QUARANTINED",
+    "on_unmapped_document_version": "QUARANTINED",
+    "on_unlicensed_or_unapproved_source": "QUARANTINED"
+  },
+  "table_candidate_contract": {
+    "status": "REVIEW_CANDIDATE_NOT_APPROVED_TRUTH",
+    "canonical_candidate_source": ["pdfplumber_native_line", "camelot_lattice"],
+    "candidate_selection_rule": "Two line-aware PDF paths must produce an exact matrix match before a canonical review candidate can be shown.",
+    "required_candidate_shape": {
+      "rows": 14,
+      "columns": 4
+    },
+    "required_cell_fields": [
+      "row_index",
+      "column_index",
+      "rowspan",
+      "colspan",
+      "text",
+      "normalized_text",
+      "bbox_px_300dpi",
+      "source_engine_ids",
+      "confidence",
+      "critical_field_flags",
+      "disagreement_ids",
+      "review_status",
+      "reviewer_note"
+    ],
+    "required_table_fields": [
+      "table_id",
+      "document_version_id",
+      "source_pdf_sha256",
+      "page_number",
+      "page_render_sha256",
+      "table_crop_sha256",
+      "table_crop_bbox_px",
+      "candidate_shape",
+      "cells",
+      "engine_outputs",
+      "disagreements",
+      "production_import_allowed"
+    ],
+    "must_not_infer_missing_cells": true,
+    "must_not_majority_vote_critical_cells": true,
+    "human_qa_required_before_indexing": true
+  },
+  "engine_outputs": {
+    "pdfplumber_native_line": {
+      "table_count": 1,
+      "shape": [14, 4],
+      "role": "canonical_candidate_engine",
+      "notes": "Matches Camelot lattice exactly but still requires visual review against the table crop."
+    },
+    "camelot_lattice": {
+      "table_count": 1,
+      "shape": [14, 4],
+      "role": "canonical_candidate_engine",
+      "matches": "pdfplumber_native_line"
+    },
+    "pdfplumber_text_strategy": {
+      "table_count": 1,
+      "shape": [17, 6],
+      "role": "disagreement_evidence"
+    },
+    "camelot_stream": {
+      "table_count": 1,
+      "shape": [17, 2],
+      "role": "disagreement_evidence"
+    },
+    "docling_tableformer_pdf": {
+      "table_count": 1,
+      "shape": [13, 4],
+      "role": "disagreement_evidence"
+    },
+    "docling_tableformer_image_300dpi": {
+      "table_count": 1,
+      "shape": [0, 0],
+      "role": "disagreement_evidence"
+    },
+    "docling_tableformer_image_400dpi": {
+      "table_count": 1,
+      "shape": [0, 0],
+      "role": "disagreement_evidence"
+    },
+    "paddleocr_pp_tablemagic_300dpi": {
+      "table_count": 1,
+      "shape": [9, 4],
+      "role": "disagreement_evidence"
+    },
+    "paddleocr_pp_tablemagic_400dpi": {
+      "table_count": 1,
+      "shape": [8, 4],
+      "role": "disagreement_evidence"
+    }
+  },
+  "disagreement_annotations": [
+    {
+      "id": "R05A08-STRUCTURE-ROW-COLUMN-MISMATCH",
+      "severity": "critical",
+      "scope": "table",
+      "evidence": ["14x4", "17x6", "17x2", "13x4", "0x0", "9x4", "8x4"],
+      "review_requirement": "Reviewer must compare candidate cells with exact table crop before any indexing approval."
+    },
+    {
+      "id": "R05A08-MERGED-CELL-RISK",
+      "severity": "major",
+      "scope": "cells",
+      "evidence": ["Chieu cao chan", "Vat lieu", "Dong khi", "Loc HEPA"],
+      "review_requirement": "Merged or multi-line rows must be marked explicitly with rowspan or colspan; no silent flattening."
+    },
+    {
+      "id": "R05A08-RETRY-UNRESOLVED",
+      "severity": "critical",
+      "scope": "workflow",
+      "evidence": ["400 DPI retry completed", "Paddle row count changed from 9 to 8", "Docling image remained 0x0"],
+      "review_requirement": "Higher-DPI retry is evidence, not permission to auto-save."
+    }
+  ],
+  "dashboard_handoff": {
+    "view": "side_by_side_review",
+    "left_panel": {
+      "required_assets": ["source_page_render", "table_crop", "figure_crop"],
+      "must_display_hashes": ["source_pdf_sha256", "page_render_sha256", "table_crop_sha256", "figure_crop_sha256"],
+      "must_display_bbox": true
+    },
+    "right_panel": {
+      "required_views": ["canonical_candidate_table", "engine_shape_matrix", "cell_disagreement_list", "figure_metadata"],
+      "rendering": "react_components_no_raw_html",
+      "approve_button_default": "disabled"
+    },
+    "reviewer_controls": [
+      "resolve_cell_disagreement",
+      "mark_rowspan_colspan",
+      "reject_candidate",
+      "quarantine_page",
+      "approve_for_indexing_after_all_critical_items_resolved"
+    ],
+    "approval_blockers": [
+      "missing_source_crop_hash",
+      "unresolved_critical_disagreement",
+      "missing_document_version_mapping",
+      "source_not_license_allowed_or_curated",
+      "approved_for_ai_use_not_true",
+      "reviewer_identity_missing"
+    ]
+  },
+  "figure_contract": {
+    "stage_separately_from_text_chunks": true,
+    "required_fields": [
+      "figure_id",
+      "document_version_id",
+      "page_number",
+      "source_pdf_sha256",
+      "page_render_sha256",
+      "figure_crop_sha256",
+      "figure_crop_bbox_px",
+      "nearby_text",
+      "caption",
+      "callout_labels",
+      "visual_embedding_status",
+      "review_status"
+    ],
+    "visual_similarity_search": {
+      "separate_from_text_retrieval": true,
+      "requires_current_document_version_gate": true,
+      "requires_license_gate": true,
+      "requires_human_qa_approval": true,
+      "source_page_citation_required": true
+    }
+  },
+  "production_write_assertions": {
+    "no_supabase_write_in_source_contract": true,
+    "no_n8n_update_execute_publish_archive": true,
+    "no_git_remote_action": true,
+    "forbidden_production_targets_before_approval": [
+      "document_chunks",
+      "document_versions",
+      "raw_files",
+      "hybrid_search_v3",
+      "published_n8n_workflow"
+    ],
+    "allowed_future_write_after_approval": [
+      "staging_table_extraction_evidence",
+      "staging_figure_extraction_evidence",
+      "append_only_audit_event"
+    ],
+    "audit_log_policy": "INSERT_ONLY"
+  },
+  "handoff_decision": {
+    "r05_a09_status": "DONE_SOURCE_ONLY",
+    "next_gate": "human_dashboard_review_design_or_staging_schema_after_exact_approval",
+    "blk004_status": "OPEN",
+    "reason": "R05-A08 proves a real table plus figure case, but table engines materially disagree; Workflow P must stage evidence and require human QA before indexing."
+  }
+}

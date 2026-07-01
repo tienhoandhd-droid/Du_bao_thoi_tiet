@@ -146,7 +146,7 @@ async function loadDashboard() {
     const h = await apiCall(API.health);
     const statusHtml = Object.entries(h.services || {}).map(([n, s]) => {
       const labels = { supabase:'Supabase', openai:'OpenAI', n8n:'n8n' };
-      return `<div class="service-pill ${s.status}"><span class="dot"></span>${labels[n]||n}: ${s.message}</div>`;
+      return `<div class="service-pill ${safeClass(s.status, 'unknown')}"><span class="dot"></span>${escapeHtml(labels[n]||n)}: ${escapeHtml(s.message)}</div>`;
     }).join('');
     document.getElementById('serviceStatus').innerHTML = statusHtml;
 
@@ -158,14 +158,14 @@ async function loadDashboard() {
       {v:st.ai_translations_pending,l:'Bản dịch AI chưa duyệt',c:st.ai_translations_pending>0?'warning':''},
       {v:st.total_ai_queries,l:'Tổng AI queries'}, {v:st.total_users,l:'Người dùng'},
       {v:st.failed_jobs,l:'Job lỗi',c:st.failed_jobs>0?'danger':''}, {v:st.unresolved_security_events,l:'Sự kiện bảo mật',c:st.unresolved_security_events>0?'danger':''},
-    ].map(s=>`<div class="stat-card ${s.c||''}"><div class="value">${s.v??0}</div><div class="label">${s.l}</div></div>`).join('');
+    ].map(s=>`<div class="stat-card ${safeClass(s.c, '')}"><div class="value">${escapeHtml(s.v??0)}</div><div class="label">${escapeHtml(s.l)}</div></div>`).join('');
 
     const w = h.warnings || [];
     document.getElementById('systemWarnings').innerHTML = w.length > 0
-      ? w.map(x=>`<div class="warning-banner">⚠ ${x}</div>`).join('')
+      ? w.map(x=>`<div class="warning-banner">⚠ ${escapeHtml(x)}</div>`).join('')
       : '<span style="color:var(--mint)">✓ Không có cảnh báo — hệ thống hoạt động bình thường</span>';
   } catch (e) {
-    document.getElementById('serviceStatus').innerHTML = `<div class="service-pill error"><span class="dot"></span>Lỗi: ${e.message}</div>`;
+    document.getElementById('serviceStatus').innerHTML = `<div class="service-pill error"><span class="dot"></span>Lỗi: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -183,19 +183,19 @@ async function handleQuery() {
       query: q, response_language: 'vi',
       filters: { language_preference: document.getElementById('filterLang').value, document_type: document.getElementById('filterDocType').value || null }
     });
-    if (!r.success) { rd.innerHTML = `<div class="warning-banner">Lỗi: ${r.error||'Không xác định'}</div>`; return; }
-    let h = `<div style="margin-bottom:12px">Mức tin cậy: <span class="confidence-badge confidence-${r.confidence}">${r.confidence}</span></div>`;
-    if (r.conflict_warning) h += `<div class="warning-banner">⚠ ${r.conflict_warning}</div>`;
-    if (r.language_warning) h += `<div class="warning-banner">🌐 ${r.language_warning}</div>`;
+    if (!r.success) { rd.innerHTML = `<div class="warning-banner">Lỗi: ${escapeHtml(r.error||'Không xác định')}</div>`; return; }
+    let h = `<div style="margin-bottom:12px">Mức tin cậy: <span class="confidence-badge confidence-${safeClass(r.confidence, 'unknown')}">${escapeHtml(r.confidence)}</span></div>`;
+    if (r.conflict_warning) h += `<div class="warning-banner">⚠ ${escapeHtml(r.conflict_warning)}</div>`;
+    if (r.language_warning) h += `<div class="warning-banner">🌐 ${escapeHtml(r.language_warning)}</div>`;
     h += `<div class="answer">${escapeHtml(r.answer)}</div>`;
     if (r.sources?.length) {
       h += `<div class="card"><h3>Nguồn tham chiếu</h3><table class="sources-table"><thead><tr><th>#</th><th>Mã tài liệu</th><th>Phiên bản</th><th>Ngôn ngữ</th><th>Trang</th><th>Mục</th><th>Loại</th><th>Điểm</th></tr></thead><tbody>`;
-      r.sources.forEach((s,i) => { h += `<tr><td>${i+1}</td><td><strong>${s.document_code||'N/A'}</strong></td><td>${s.version||'-'}</td><td><span class="lang-badge">${s.language_code||'-'}</span></td><td>${s.page_number||'-'}</td><td>${s.section_code||''} ${s.section_title||''}</td><td><span class="source-badge ${(s.source_type||'').replace(/-/g,'_')}">${s.source_type||'-'}</span></td><td>${(s.relevance_score||0).toFixed(2)}</td></tr>`; });
+      r.sources.forEach((s,i) => { h += `<tr><td>${i+1}</td><td><strong>${escapeHtml(s.document_code||'N/A')}</strong></td><td>${escapeHtml(s.version||'-')}</td><td><span class="lang-badge">${escapeHtml(s.language_code||'-')}</span></td><td>${escapeHtml(s.page_number||'-')}</td><td>${escapeHtml((s.section_code||'') + ' ' + (s.section_title||''))}</td><td><span class="source-badge ${safeClass(s.source_type, 'unknown')}">${escapeHtml(s.source_type||'-')}</span></td><td>${formatScore(s.relevance_score)}</td></tr>`; });
       h += '</tbody></table></div>';
     }
-    h += `<div class="disclaimer">⚕ ${r.disclaimer||'Nội dung do AI tạo, cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức.'}</div>`;
+    h += `<div class="disclaimer">⚕ ${escapeHtml(r.disclaimer||'Nội dung do AI tạo, cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức.')}</div>`;
     rd.innerHTML = h;
-  } catch (e) { rd.innerHTML = `<div class="warning-banner">Lỗi: ${e.message}</div>`; }
+  } catch (e) { rd.innerHTML = `<div class="warning-banner">Lỗi: ${escapeHtml(e.message)}</div>`; }
   finally { btn.textContent = 'Tìm kiếm'; btn.disabled = false; }
 }
 
@@ -215,9 +215,9 @@ async function searchDocuments() {
     if (!docs.length) { ld.innerHTML = '<span class="empty">❄ Không tìm thấy tài liệu nào.</span>'; return; }
     const statusMap = {draft:'Bản nháp',indexed:'Đã index',reviewed:'Đã review',approved_for_ai_use:'✓ AI Approved',superseded:'Thay thế',archived:'Lưu trữ'};
     let h = '<table class="doc-table"><thead><tr><th>Mã</th><th>Tên</th><th>Loại</th><th>Ngôn ngữ</th><th>Phiên bản</th><th>Trạng thái</th><th>Chunks</th></tr></thead><tbody>';
-    docs.forEach(d => { h += `<tr><td><strong>${d.document_code}</strong></td><td>${d.document_title}</td><td>${d.document_type}</td><td><span class="lang-badge">${d.language_code}</span></td><td>v${d.version}</td><td><span class="status-badge ${d.status}">${statusMap[d.status]||d.status}</span></td><td>${d.chunk_count||0}</td></tr>`; });
+    docs.forEach(d => { h += `<tr><td><strong>${escapeHtml(d.document_code)}</strong></td><td>${escapeHtml(d.document_title)}</td><td>${escapeHtml(d.document_type)}</td><td><span class="lang-badge">${escapeHtml(d.language_code)}</span></td><td>v${escapeHtml(d.version)}</td><td><span class="status-badge ${safeClass(d.status, 'unknown')}">${escapeHtml(statusMap[d.status]||d.status)}</span></td><td>${escapeHtml(d.chunk_count||0)}</td></tr>`; });
     ld.innerHTML = h + '</tbody></table>';
-  } catch (e) { ld.innerHTML = `<div class="warning-banner">Lỗi: ${e.message}</div>`; }
+  } catch (e) { ld.innerHTML = `<div class="warning-banner">Lỗi: ${escapeHtml(e.message)}</div>`; }
 }
 
 // ============================================================
@@ -234,10 +234,10 @@ async function loadAuditTrail() {
     let h = '<table class="doc-table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Vai trò</th><th>Hành động</th><th>Tóm tắt</th><th>Tài liệu</th></tr></thead><tbody>';
     data.forEach(l => {
       const t = new Date(l.timestamp).toLocaleString('vi-VN');
-      h += `<tr><td style="font-size:12px;white-space:nowrap">${t}</td><td>${l.user_email||'-'}</td><td>${l.user_role||'-'}</td><td>${actionMap[l.action_type]||l.action_type}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${l.input_summary||'-'}</td><td>${l.document_code||'-'}</td></tr>`;
+      h += `<tr><td style="font-size:12px;white-space:nowrap">${escapeHtml(t)}</td><td>${escapeHtml(l.user_email||'-')}</td><td>${escapeHtml(l.user_role||'-')}</td><td>${escapeHtml(actionMap[l.action_type]||l.action_type)}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.input_summary||'-')}</td><td>${escapeHtml(l.document_code||'-')}</td></tr>`;
     });
     el.innerHTML = h + '</tbody></table>';
-  } catch (e) { el.innerHTML = `<div class="warning-banner">Lỗi: ${e.message}</div>`; }
+  } catch (e) { el.innerHTML = `<div class="warning-banner">Lỗi: ${escapeHtml(e.message)}</div>`; }
 }
 
 // ============================================================
@@ -274,7 +274,7 @@ async function runSecurityCheck() {
   add(location.protocol === 'https:', 'Kết nối HTTPS', location.protocol === 'https:' ? 'Mã hóa đường truyền' : 'CẢNH BÁO: Đang dùng HTTP không an toàn!');
 
   // Render
-  el.innerHTML = checks.map(c => `<div class="security-check ${c.ok ? 'ok' : 'fail'}"><span class="icon">${c.ok ? '✓' : '✗'}</span><strong>${c.label}</strong><span style="color:var(--text-soft);margin-left:8px;font-size:12px">— ${c.detail}</span></div>`).join('');
+  el.innerHTML = checks.map(c => `<div class="security-check ${c.ok ? 'ok' : 'fail'}"><span class="icon">${c.ok ? '✓' : '✗'}</span><strong>${escapeHtml(c.label)}</strong><span style="color:var(--text-soft);margin-left:8px;font-size:12px">— ${escapeHtml(c.detail)}</span></div>`).join('');
   const passed = checks.filter(c => c.ok).length;
   el.innerHTML = `<div style="margin-bottom:12px;font-weight:700;color:${passed===checks.length?'var(--mint)':'var(--gold)'}">Kết quả: ${passed}/${checks.length} kiểm tra đạt</div>` + el.innerHTML;
   btn.disabled = false; btn.textContent = 'Chạy kiểm tra bảo mật';
@@ -296,7 +296,24 @@ function showPage(id) {
   resetSessionTimer();
 }
 
-function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML.replace(/\n/g, '<br>'); }
+function escapeHtml(t) {
+  const d = document.createElement('div');
+  d.textContent = t === null || t === undefined ? '' : String(t);
+  return d.innerHTML.replace(/\n/g, '<br>');
+}
+
+function safeClass(value, fallback) {
+  const token = (value === null || value === undefined ? fallback : String(value))
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return token || fallback || '';
+}
+
+function formatScore(value) {
+  const score = Number(value);
+  return Number.isFinite(score) ? score.toFixed(2) : '0.00';
+}
 
 // ============================================================
 // SNOWFLAKES ❄

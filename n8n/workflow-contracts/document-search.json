@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "workflow": {
+    "id": "o4fuUanxRrD7qQoG",
+    "name": "TKTL WF-06 Document Search",
+    "source": "n8n/workflows/TKTL-WF-06-document-search.json",
+    "migration_dependency": "024_secure_document_search_boundary",
+    "live_update_authorized": false
+  },
+  "endpoint": {
+    "method": "POST",
+    "webhook_path": "search-docs",
+    "cors_allowed_origin": "https://tienhoandhd-droid.github.io",
+    "intended_client": "CRAVE GitHub Pages production",
+    "localhost_policy": "Không mở CORS production cho localhost; test trực tiếp bằng runner được kiểm soát."
+  },
+  "authentication": {
+    "verify_method": "GET https://bdttccztjtrcaztjgkot.supabase.co/auth/v1/user",
+    "required_headers": [
+      "Authorization: Bearer <user JWT>",
+      "apikey: <public anon key>"
+    ],
+    "verify_error_mode": "continueErrorOutput",
+    "rpc_identity": "Chuyển nguyên bearer JWT đã verify; không decode JWT và không nhận user_id từ body.",
+    "forbidden_roles": [
+      "anon",
+      "service_role",
+      "postgres/BYPASSRLS"
+    ]
+  },
+  "rpc": {
+    "method": "POST",
+    "url": "https://bdttccztjtrcaztjgkot.supabase.co/rest/v1/rpc/search_documents_v1",
+    "security": "SECURITY INVOKER + auth.uid() + documents RLS",
+    "arguments": {
+      "p_keyword": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "max_length": 200
+      },
+      "p_document_type": {
+        "type": [
+          "enum",
+          "null"
+        ],
+        "validation": "PostgreSQL enum"
+      },
+      "p_source_type": {
+        "type": [
+          "enum",
+          "null"
+        ],
+        "validation": "PostgreSQL enum"
+      },
+      "p_language_code": {
+        "type": [
+          "enum",
+          "null"
+        ],
+        "validation": "PostgreSQL enum"
+      },
+      "p_status": {
+        "type": [
+          "enum",
+          "null"
+        ],
+        "validation": "PostgreSQL enum"
+      },
+      "p_equipment_type": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "max_length": 100
+      },
+      "p_equipment_code": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "max_length": 100
+      },
+      "p_owner_department": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "max_length": 100
+      },
+      "p_translation_status": {
+        "type": [
+          "enum",
+          "null"
+        ],
+        "validation": "PostgreSQL enum"
+      },
+      "p_include_superseded": {
+        "type": "boolean",
+        "default": false,
+        "privileged_roles": [
+          "admin",
+          "qa_manager",
+          "auditor"
+        ]
+      },
+      "p_limit": {
+        "type": "integer",
+        "default": 50,
+        "minimum": 1,
+        "maximum": 100
+      },
+      "p_offset": {
+        "type": "integer",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 10000
+      }
+    }
+  },
+  "response": {
+    "success_status": 200,
+    "top_level_fields": [
+      "success",
+      "documents",
+      "total_count",
+      "limit",
+      "offset",
+      "filters_applied"
+    ],
+    "document_allowlist": [
+      "id",
+      "document_group_id",
+      "document_code",
+      "document_title",
+      "document_type",
+      "language_code",
+      "source_type",
+      "version",
+      "status",
+      "approved_for_ai_use",
+      "translation_status",
+      "is_ai_translated",
+      "owner_department",
+      "equipment_type",
+      "equipment_code",
+      "file_name",
+      "file_hash",
+      "page_count",
+      "chunk_count",
+      "uploaded_at",
+      "reviewed_at",
+      "approved_at",
+      "effective_date"
+    ],
+    "forbidden_fields": [
+      "content",
+      "embedding",
+      "file_content",
+      "service_role_key",
+      "jwt",
+      "search_sql",
+      "count_sql"
+    ],
+    "error_contract": {
+      "400": "Validation/enum/filter lỗi; không trả SQL/internal error.",
+      "401": "JWT thiếu, invalid hoặc expired.",
+      "403": "RLS/role từ chối.",
+      "502": "RPC/backend hoặc response contract lỗi; không lộ chi tiết nội bộ."
+    }
+  },
+  "database_access": {
+    "allowed": [
+      "PostgREST RPC search_documents_v1 bằng user bearer JWT"
+    ],
+    "forbidden": [
+      "n8n Postgres node",
+      "GMP-check credential",
+      "dynamic SQL",
+      "SELECT trực tiếp public.documents",
+      "service_role",
+      "p_user_id từ client"
+    ],
+    "audit_log_mutation": "Không có trong WF-06 R01-A03."
+  },
+  "required_live_tests_before_R01_A05_or_A06": [
+    "missing/invalid JWT",
+    "anon/service_role denial",
+    "authenticated allow",
+    "two-user RLS leakage = 0",
+    "privileged/non-privileged include_superseded",
+    "invalid enum",
+    "keyword injection literal",
+    "limit/offset bounds",
+    "response-field allowlist",
+    "deterministic pagination",
+    "CORS allowed/denied origin",
+    "migration forward/catalog/rollback/re-apply rehearsal trên clone"
+  ]
+}

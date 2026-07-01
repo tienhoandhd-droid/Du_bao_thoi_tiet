@@ -1,0 +1,50 @@
+.DS_Store
+**/.DS_Store
+
+# Build / deps
+node_modules/
+app/dist/
+**/__pycache__/
+*.pyc
+supabase/.temp/
+
+# ===== PRIVATE — chỉ lưu LOCAL, KHÔNG publish lên GitHub public =====
+# Điều phối / phân vai
+/AGENTS.md
+/CLAUDE.md
+/CRAVE-DIEU-PHOI-Codex-ClaudeCode.md
+/00-HANDOFF-CRAVE.md
+**/AGENTS.override.md
+docs/governance/
+docs/governance-contract.md
+docs/codex-gpt-starter.md
+.agents/
+.codex/
+.claude/
+# Tiến độ / kế hoạch / bằng chứng nội bộ
+/PROJECT_PROGRESS.md
+/CURRENT_STATUS.md
+/NEXT_ACTIONS.md
+/ROADMAP.md
+/kehoach.md
+/nangcap.md
+docs/progress/
+docs/checkpoints/
+docs/upgrade/UPGRADE_PROGRESS.md
+# Scripts enforcement governance
+scripts/validate_instruction_architecture.py
+scripts/test_validate_instruction_architecture.py
+scripts/test_crave_governance.py
+scripts/validate_p0_closure_manifest.py
+
+# ===== Scratch + tài liệu nhị phân (bản quyền / rò rỉ) — không public =====
+work/
+output/
+*.pdf
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.rar
+*.zip
+*.7z

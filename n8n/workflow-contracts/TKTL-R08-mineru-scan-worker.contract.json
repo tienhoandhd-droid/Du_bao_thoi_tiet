@@ -1,0 +1,199 @@
+{
+  "contract_version": 1,
+  "action": "R08-A01",
+  "name": "TKTL R08 MinerU Scan Worker Boundary",
+  "live_status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "project_ref": "bdttccztjtrcaztjgkot",
+  "workflow_scope": "TKTL_ONLY",
+  "production_write_default": "DENY",
+  "integration_role": "ADVISORY_EXTRACTION_ENGINE_NOT_GROUND_TRUTH",
+  "mineru_candidate": {
+    "repository": "opendatalab/MinerU",
+    "release_tag": "mineru-3.4.0-released",
+    "release_date": "2026-06-18",
+    "default_spike_backend": "pipeline",
+    "allowed_spike_backends": [
+      "pipeline",
+      "hybrid-engine"
+    ],
+    "forbid_latest_tag": true,
+    "llm_aided_config_enabled": false,
+    "external_document_upload_allowed": false,
+    "private_local_worker_required": true
+  },
+  "license_gate": {
+    "license_name": "MinerU Open Source License",
+    "apache_2_based_with_additional_terms": true,
+    "online_service_attribution_review_required": true,
+    "legal_owner_decision_required_before_production": true,
+    "sbom_and_notice_required": true
+  },
+  "runtime_preflight": {
+    "python_supported": "3.10-3.13",
+    "minimum_ram_gib": 16,
+    "recommended_ram_gib": 32,
+    "minimum_free_disk_gib": 20,
+    "isolated_environment_required": true,
+    "model_download_is_separate_action": true,
+    "resource_metrics": [
+      "peak_rss_bytes",
+      "wall_time_ms",
+      "input_bytes",
+      "output_bytes",
+      "model_cache_hit",
+      "cleanup_residue_bytes"
+    ]
+  },
+  "job_boundary": {
+    "canonical_state_owner": "CRAVE_INGEST_JOB_LEDGER",
+    "mineru_task_state_is_durable": false,
+    "mineru_task_id_role": "EXECUTION_REFERENCE_ONLY",
+    "idempotency_key_fields": [
+      "document_version_id",
+      "raw_sha256",
+      "page_window_start",
+      "page_window_end",
+      "parser_lock_hash"
+    ],
+    "one_file_per_job": true,
+    "default_page_window": 10,
+    "reconcile_output_hash_before_retry": true,
+    "lost_worker_state": "RETRYABLE_LOST_WORKER_STATE",
+    "duplicate_production_write_allowed": false
+  },
+  "n8n_boundary": {
+    "role": "MANIFEST_AND_RESULT_REFERENCE_ORCHESTRATOR",
+    "binary_or_base64_in_long_item_chain_allowed": false,
+    "public_unauthenticated_worker_allowed": false,
+    "new_n8n_credential_allowed_without_change_control": false,
+    "n8n_variables_allowed": false,
+    "community_nodes_allowed": false,
+    "crypto_in_code_node_allowed": false,
+    "live_update_execute_publish_archive_allowed": false
+  },
+  "output_adapter": {
+    "adapter_id": "crave-mineru-v1",
+    "reject_unknown_mineru_version": true,
+    "reject_unknown_backend": true,
+    "markdown_is_canonical": false,
+    "primary_structured_artifact": "middle.json",
+    "secondary_artifacts": [
+      "content_list.json",
+      "model.json",
+      "layout.pdf",
+      "span.pdf"
+    ],
+    "content_list_v2_status": "EVIDENCE_ONLY_DEVELOPMENT_SCHEMA",
+    "content_list_v2_production_contract_allowed": false,
+    "normalized_bbox_range": [
+      0,
+      1000
+    ],
+    "preserve_original_bbox_and_coordinate_system": true,
+    "required_provenance": [
+      "document_version_id",
+      "raw_sha256",
+      "mineru_release_tag",
+      "backend",
+      "method",
+      "effort",
+      "model_ids",
+      "config_sha256",
+      "parser_lock_hash",
+      "page_number",
+      "page_size",
+      "page_rotation",
+      "render_dpi",
+      "original_bbox",
+      "original_coordinate_system",
+      "normalized_bbox_0_1000",
+      "reading_order",
+      "source_crop_sha256",
+      "raw_artifact_sha256",
+      "cleanup_state"
+    ]
+  },
+  "states": [
+    "RECEIVED",
+    "RAW_HASH_VERIFIED",
+    "QUEUED",
+    "PARSING_WINDOW",
+    "OUTPUT_HASH_VERIFIED",
+    "ADAPTED",
+    "VALIDATED",
+    "READY_FOR_HUMAN_QA",
+    "APPROVED_FOR_INDEXING",
+    "RETRYABLE_LOST_WORKER_STATE",
+    "QUARANTINED",
+    "QUARANTINED_RESOURCE_LIMIT"
+  ],
+  "multi_engine_gate": {
+    "required_independent_paths_for_scanned_gmp": 3,
+    "mineru_counts_as_one_path": true,
+    "mineru_can_self_approve": false,
+    "majority_vote_can_approve_critical_content": false,
+    "critical_fields": [
+      "number",
+      "decimal_separator",
+      "sign",
+      "unit",
+      "section_reference",
+      "table_cell",
+      "rowspan_colspan",
+      "diagram_label",
+      "reading_order"
+    ],
+    "critical_disagreement_state": "READY_FOR_HUMAN_QA",
+    "missing_source_region_state": "QUARANTINED"
+  },
+  "promotion_assertions": [
+    "same_raw_sha256",
+    "current_document_version",
+    "license_allowed_or_curated",
+    "all_page_windows_accounted_for",
+    "all_required_engine_paths_present",
+    "accepted_blocks_have_page_bbox_and_source_crop_hash",
+    "critical_tokens_and_table_structure_resolved",
+    "reading_order_validated",
+    "human_qa_approved_for_gmp_critical_content",
+    "approved_for_ai_use",
+    "cleanup_checkpoint_complete"
+  ],
+  "on_missing_or_failed_assertion": {
+    "state": "QUARANTINED",
+    "production_write": false,
+    "append_audit_event": true
+  },
+  "forbidden_targets_before_separate_approval": [
+    "document_chunks",
+    "document_versions",
+    "raw_files",
+    "hybrid_search_v3",
+    "published_n8n_workflow",
+    "supabase_schema",
+    "supabase_live_data"
+  ],
+  "oq_gate": {
+    "fixture_count": 5,
+    "fixture_types": [
+      "multi_column_text_pdf",
+      "vietnamese_scanned_pdf_with_numbers_and_units",
+      "merged_cell_table",
+      "labeled_diagram",
+      "rotated_or_controlled_broken_pdf"
+    ],
+    "deterministic_normalized_evidence_required": true,
+    "accepted_block_provenance_coverage": 1.0,
+    "critical_auto_promotion_allowed": false,
+    "corrupt_or_password_input_may_create_chunks": false,
+    "restart_may_create_duplicate": false,
+    "resource_report_required": true,
+    "network_egress_during_parse_allowed": false
+  },
+  "next_gate": {
+    "action": "R08-A02",
+    "scope": "LOCAL_MINERU_3_4_0_FIVE_FIXTURE_SPIKE",
+    "requires_separate_tooling_and_model_budget_decision": true,
+    "live_mutation_authorized": false
+  }
+}

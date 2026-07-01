@@ -51,9 +51,13 @@ export interface DocumentRecord {
   document_code?: string;
   document_title?: string;
   document_type?: string;
+  source_type?: string;
   language_code?: string;
   version?: string | number;
   status?: string;
+  approved_for_ai_use?: boolean;
+  file_name?: string;
+  page_count?: number;
   chunk_count?: number;
 }
 

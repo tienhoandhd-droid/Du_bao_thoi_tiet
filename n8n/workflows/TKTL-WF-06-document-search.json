@@ -3,12 +3,12 @@
     "schemaVersion": 1,
     "workflowNumber": "06",
     "provenance": {
-      "source": "n8n live qua MCP get_workflow_details (read-only)",
+      "source": "R01-A03 local source refactor từ activeVersion đã capture read-only",
       "capturedAt": "2026-06-29",
       "liveWorkflowId": "o4fuUanxRrD7qQoG",
       "graphSource": "activeVersion",
       "priorLocalFileStatus": "untracked; không có commit/PR provenance",
-      "credentialBindingNote": "n8n MCP đã sanitize trường credentials; binding trong export được phục hồi từ source repo/loại node và inventory credential đã phê duyệt, không được coi là live-verified."
+      "credentialBindingNote": "R01-A03 loại bỏ hoàn toàn Postgres credential khỏi WF-06; HTTP Supabase dùng placeholder anon key trong source và bearer JWT người dùng ở runtime."
     },
     "liveState": {
       "published": true,
@@ -18,19 +18,18 @@
       "createdAt": "2026-06-24T05:49:27.413Z",
       "updatedAt": "2026-06-27T11:28:21.768Z"
     },
+    "targetState": {
+      "sourceOnly": true,
+      "migrationDependency": "024_secure_document_search_boundary",
+      "databasePath": "PostgREST /rest/v1/rpc/search_documents_v1",
+      "authorizationBoundary": "Bearer JWT người dùng + SECURITY INVOKER + documents RLS",
+      "corsAllowedOrigin": "https://tienhoandhd-droid.github.io",
+      "liveMutationAuthorized": false
+    },
     "redactions": [
       "Giá trị header apikey Supabase -> __REDACTED_SUPABASE_ANON_KEY__"
     ],
-    "credentialBindings": [
-      {
-        "node": "PG: Search Documents",
-        "type": "postgres",
-        "name": "GMP-check",
-        "id": "0WcJFXEhwLXQhJmn",
-        "evidence": "preexisting-untracked-binding-plus-live-node-match",
-        "liveMcpBindingVisible": false
-      }
-    ]
+    "credentialBindings": []
   },
   "id": "o4fuUanxRrD7qQoG",
   "name": "TKTL WF-06 Document Search",
@@ -43,7 +42,7 @@
         "path": "search-docs",
         "responseMode": "responseNode",
         "options": {
-          "allowedOrigins": "*"
+          "allowedOrigins": "https://tienhoandhd-droid.github.io"
         }
       },
       "id": "deba5dfd-31d4-4d9e-9023-3e5924aa5dfd",
@@ -55,120 +54,6 @@
         144
       ],
       "webhookId": "search-docs"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse + decode JWT + build search SQL\nconst headers = $('Webhook Search').first().json.headers || {};\nconst body = $('Webhook Search').first().json.body || {};\n\nconst authHeader = headers.authorization || headers.Authorization || '';\nconst token = authHeader.replace('Bearer ', '');\n\nif (!token) {\n  return [{ json: { error: true, message: 'Thiếu token xác thực', status: 401 } }];\n}\n\nlet userId = null;\ntry {\n  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());\n  userId = payload.sub;\n  if (!userId) throw new Error('Không có user ID');\n} catch (e) {\n  return [{ json: { error: true, message: 'Token không hợp lệ', status: 401 } }];\n}\n\n// Build WHERE clauses\nlet conditions = [];\n\n// Mặc định ẩn superseded/archived\nif (body.include_superseded !== true) {\n  conditions.push(\"status NOT IN ('superseded', 'archived')\");\n}\n\nif (body.document_type) conditions.push(`document_type = '${body.document_type}'::document_type`);\nif (body.source_type) conditions.push(`source_type = '${body.source_type}'::source_type`);\nif (body.language_code) conditions.push(`language_code = '${body.language_code}'::language_code`);\nif (body.status) conditions.push(`status = '${body.status}'::document_status`);\nif (body.equipment_type) conditions.push(`equipment_type = '${body.equipment_type.replace(/'/g, \"''\")}'`);\nif (body.equipment_code) conditions.push(`equipment_code = '${body.equipment_code.replace(/'/g, \"''\")}'`);\nif (body.owner_department) conditions.push(`owner_department = '${body.owner_department.replace(/'/g, \"''\")}'`);\nif (body.translation_status) conditions.push(`translation_status = '${body.translation_status}'::translation_status`);\n\n// Keyword search\nif (body.keyword) {\n  const kw = body.keyword.replace(/'/g, \"''\");\n  conditions.push(`(document_code ILIKE '%${kw}%' OR document_title ILIKE '%${kw}%')`);\n}\n\nconst whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';\nconst limit = Math.min(Math.max(parseInt(body.limit) || 50, 1), 100);\nconst offset = Math.max(parseInt(body.offset) || 0, 0);\n\nconst sql = `SELECT id, document_group_id, document_code, document_title, document_type, language_code, source_type, version, status, approved_for_ai_use, translation_status, is_ai_translated, owner_department, equipment_type, equipment_code, file_name, file_hash, page_count, chunk_count, uploaded_at, reviewed_at, approved_at, effective_date FROM documents ${whereClause} ORDER BY document_code ASC, version DESC LIMIT ${limit} OFFSET ${offset};`;\n\nconst countSql = `SELECT count(*) as total FROM documents ${whereClause};`;\n\nreturn [{ json: { error: false, search_sql: sql, count_sql: countSql, filters: body, limit, offset } }];"
-      },
-      "id": "7d706687-463a-4834-93b0-08348156274c",
-      "name": "Parse + Build SQL",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        320,
-        240
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $json.error }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "975ea077-25b2-4c4f-8824-1ebe7eeac87b",
-      "name": "OK?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        544,
-        240
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
-        "options": {
-          "responseCode": "={{ $json.status || 400 }}"
-        }
-      },
-      "id": "dc4fee2b-5ba8-48dc-9217-3cb64fa0c79b",
-      "name": "Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        768,
-        48
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "{{ $('Parse + Build SQL').first().json.search_sql }}",
-        "options": {}
-      },
-      "id": "0ca46a9c-72b4-4710-8d95-6960c4b4d325",
-      "name": "PG: Search Documents",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        768,
-        288
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "0WcJFXEhwLXQhJmn",
-          "name": "GMP-check"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const docs = $input.all().map(item => item.json);\nconst meta = $('Parse + Build SQL').first().json;\n\n// Nếu query trả rỗng, docs[0] có thể là object rỗng\nconst validDocs = docs.filter(d => d.id);\n\nreturn [{ json: {\n  success: true,\n  documents: validDocs,\n  total_count: validDocs.length,\n  limit: meta.limit,\n  offset: meta.offset,\n  filters_applied: meta.filters\n}}];"
-      },
-      "id": "41203190-76cf-44e0-8b2d-0b9438d2eb5f",
-      "name": "Format Results",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        992,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "a121cf29-aab1-4b36-9f66-db0d5703e357",
-      "name": "Search Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1216,
-        288
-      ]
     },
     {
       "parameters": {
@@ -202,6 +87,185 @@
     },
     {
       "parameters": {
+        "jsCode": "// R01-A03: Verify JWT đã hoàn tất ở node trước. Không decode JWT và không dựng SQL.\nconst request = $('Webhook Search').first().json;\nconst verifiedUser = $('🔐 Verify JWT').first().json;\nconst headers = request.headers || {};\nconst body = request.body || {};\nconst authHeader = String(headers.authorization || headers.Authorization || '').trim();\n\nconst fail = (message, status = 400) => [{ json: { error: true, status, message } }];\nconst textFilter = (value, name, maxLength) => {\n  if (value === undefined || value === null || value === '') return null;\n  if (typeof value !== 'string') throw new Error(name + ' phải là chuỗi');\n  const normalized = value.trim();\n  if (!normalized) return null;\n  if (normalized.length > maxLength) throw new Error(name + ' vượt quá ' + maxLength + ' ký tự');\n  return normalized;\n};\nconst enumFilter = (value, name) => {\n  const normalized = textFilter(value, name, 50);\n  if (normalized !== null && !/^[a-z][a-z0-9_]{0,49}$/.test(normalized)) {\n    throw new Error(name + ' không đúng định dạng enum');\n  }\n  return normalized;\n};\n\nif (!verifiedUser.id) return fail('Không lấy được user.id từ bước xác thực', 401);\nif (!/^Bearer\\s+\\S+$/i.test(authHeader)) return fail('Thiếu Authorization Bearer hợp lệ', 401);\n\nlet keyword;\nlet equipmentType;\nlet equipmentCode;\nlet ownerDepartment;\nlet documentType;\nlet sourceType;\nlet languageCode;\nlet status;\nlet translationStatus;\ntry {\n  keyword = textFilter(body.keyword, 'keyword', 200);\n  equipmentType = textFilter(body.equipment_type, 'equipment_type', 100);\n  equipmentCode = textFilter(body.equipment_code, 'equipment_code', 100);\n  ownerDepartment = textFilter(body.owner_department, 'owner_department', 100);\n  documentType = enumFilter(body.document_type, 'document_type');\n  sourceType = enumFilter(body.source_type, 'source_type');\n  languageCode = enumFilter(body.language_code, 'language_code');\n  status = enumFilter(body.status, 'status');\n  translationStatus = enumFilter(body.translation_status, 'translation_status');\n} catch (error) {\n  return fail(error.message, 400);\n}\n\nif (body.include_superseded !== undefined && typeof body.include_superseded !== 'boolean') {\n  return fail('include_superseded phải là boolean');\n}\nconst limit = body.limit === undefined ? 50 : body.limit;\nconst offset = body.offset === undefined ? 0 : body.offset;\nif (!Number.isInteger(limit) || limit < 1 || limit > 100) return fail('limit phải là số nguyên trong khoảng 1..100');\nif (!Number.isInteger(offset) || offset < 0 || offset > 10000) return fail('offset phải là số nguyên trong khoảng 0..10000');\n\nconst rpcBody = {\n  p_keyword: keyword,\n  p_document_type: documentType,\n  p_source_type: sourceType,\n  p_language_code: languageCode,\n  p_status: status,\n  p_equipment_type: equipmentType,\n  p_equipment_code: equipmentCode,\n  p_owner_department: ownerDepartment,\n  p_translation_status: translationStatus,\n  p_include_superseded: body.include_superseded === true,\n  p_limit: limit,\n  p_offset: offset\n};\n\nreturn [{\n  json: {\n    error: false,\n    verified_user_id: String(verifiedUser.id),\n    authorization: authHeader.replace(/^bearer\\s+/i, 'Bearer '),\n    rpc_body: rpcBody,\n    filters_applied: rpcBody\n  }\n}];"
+      },
+      "id": "7d706687-463a-4834-93b0-08348156274c",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "975ea077-25b2-4c4f-8824-1ebe7eeac87b",
+      "name": "Validation Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        544,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bdttccztjtrcaztjgkot.supabase.co/rest/v1/rpc/search_documents_v1",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Validate Request').first().json.authorization }}"
+            },
+            {
+              "name": "apikey",
+              "value": "__REDACTED_SUPABASE_ANON_KEY__"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.rpc_body) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "0ca46a9c-72b4-4710-8d95-6960c4b4d325",
+      "name": "PostgREST: search_documents_v1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        768,
+        288
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet payload = raw && raw.body !== undefined ? raw.body : raw;\nif (typeof payload === 'string') {\n  try { payload = JSON.parse(payload); } catch { payload = null; }\n}\nif (Array.isArray(payload) && payload.length === 1) payload = payload[0];\n\nif (!payload || typeof payload !== 'object' || !Array.isArray(payload.documents)) {\n  return [{ json: { error: true, status: 502, message: 'Phản hồi RPC không đúng contract' } }];\n}\n\nconst allowedFields = [\n  'id', 'document_group_id', 'document_code', 'document_title', 'document_type',\n  'language_code', 'source_type', 'version', 'status', 'approved_for_ai_use',\n  'translation_status', 'is_ai_translated', 'owner_department', 'equipment_type',\n  'equipment_code', 'file_name', 'file_hash', 'page_count', 'chunk_count',\n  'uploaded_at', 'reviewed_at', 'approved_at', 'effective_date'\n];\nconst documents = payload.documents.map((document) => {\n  const sanitized = {};\n  for (const field of allowedFields) {\n    if (Object.prototype.hasOwnProperty.call(document || {}, field)) sanitized[field] = document[field];\n  }\n  return sanitized;\n});\nconst totalCount = Number(payload.total_count);\nconst limit = Number(payload.limit);\nconst offset = Number(payload.offset);\nif (!Number.isInteger(totalCount) || totalCount < 0 || !Number.isInteger(limit) || !Number.isInteger(offset)) {\n  return [{ json: { error: true, status: 502, message: 'Metadata phân trang RPC không đúng contract' } }];\n}\n\nreturn [{ json: {\n  error: false,\n  success: true,\n  documents,\n  total_count: totalCount,\n  limit,\n  offset,\n  filters_applied: $('Validate Request').first().json.filters_applied\n} }];"
+      },
+      "id": "41203190-76cf-44e0-8b2d-0b9438d2eb5f",
+      "name": "Format Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $input.first().json || {};\nconst candidate = Number(error.statusCode || error.httpCode || error.status || error.cause?.statusCode || 0);\nconst status = [400, 401, 403].includes(candidate) ? candidate : 502;\nconst message = status === 401\n  ? 'JWT không hợp lệ hoặc đã hết hạn'\n  : status === 403\n    ? 'Không có quyền tìm kiếm tài liệu theo yêu cầu'\n    : status === 400\n      ? 'Bộ lọc tìm kiếm không hợp lệ'\n      : 'Dịch vụ tìm kiếm tài liệu tạm thời không khả dụng';\nreturn [{ json: { error: true, status, message } }];"
+      },
+      "id": "e1b4ec51-8625-4c7a-b85c-024000000006",
+      "name": "RPC Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c2d4ec51-8625-4c7a-b85c-024000000006",
+      "name": "Response Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": {
+          "responseCode": "={{ $json.status || 400 }}"
+        }
+      },
+      "id": "dc4fee2b-5ba8-48dc-9217-3cb64fa0c79b",
+      "name": "Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a121cf29-aab1-4b36-9f66-db0d5703e357",
+      "name": "Search Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        336
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "return [{ json: { error: true, status: 401, message: 'Xác thực thất bại: token không hợp lệ hoặc đã hết hạn' } }];"
       },
       "type": "n8n-nodes-base.code",
@@ -226,18 +290,36 @@
         ]
       ]
     },
-    "Parse + Build SQL": {
+    "🔐 Verify JWT": {
       "main": [
         [
           {
-            "node": "OK?",
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auth 401",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "OK?": {
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Validation Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Error?": {
       "main": [
         [
           {
@@ -248,18 +330,25 @@
         ],
         [
           {
-            "node": "PG: Search Documents",
+            "node": "PostgREST: search_documents_v1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "PG: Search Documents": {
+    "PostgREST: search_documents_v1": {
       "main": [
         [
           {
             "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RPC Error",
             "type": "main",
             "index": 0
           }
@@ -270,25 +359,36 @@
       "main": [
         [
           {
-            "node": "Search Response",
+            "node": "Response Error?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "🔐 Verify JWT": {
+    "RPC Error": {
       "main": [
         [
           {
-            "node": "Parse + Build SQL",
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response Error?": {
+      "main": [
+        [
+          {
+            "node": "Error",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Auth 401",
+            "node": "Search Response",
             "type": "main",
             "index": 0
           }

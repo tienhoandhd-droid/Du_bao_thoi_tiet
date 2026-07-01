@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "workflow": "TKTL WF-06 Document Search",
+  "note": "Chỉ fixture synthetic; token là placeholder, không phải secret. Không execute live khi chưa được phê duyệt.",
+  "cases": [
+    {
+      "id": "positive_default",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "keyword": "SOP"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "rpc_called": true,
+        "rls_identity": "USER_A",
+        "fields_match_allowlist": true
+      }
+    },
+    {
+      "id": "missing_jwt",
+      "request": {
+        "headers": {},
+        "body": {
+          "keyword": "SOP"
+        }
+      },
+      "expected": {
+        "status": 401,
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "invalid_jwt",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __INVALID_OR_EXPIRED_JWT__"
+        },
+        "body": {
+          "keyword": "SOP"
+        }
+      },
+      "expected": {
+        "status": 401,
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "invalid_enum_format",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "document_type": "sop');select 1;--"
+        }
+      },
+      "expected": {
+        "status": 400,
+        "rejected_by": "Validate Request",
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "invalid_enum_value",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "document_type": "synthetic_unknown_type"
+        }
+      },
+      "expected": {
+        "status": 400,
+        "rejected_by": "PostgREST typed enum",
+        "no_internal_error_leak": true
+      }
+    },
+    {
+      "id": "keyword_injection_literal",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "keyword": "%' OR true --"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "rpc_called": true,
+        "sql_structure_changed": false
+      }
+    },
+    {
+      "id": "limit_zero",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "limit": 0
+        }
+      },
+      "expected": {
+        "status": 400,
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "limit_above_max",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "limit": 101
+        }
+      },
+      "expected": {
+        "status": 400,
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "offset_negative",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "offset": -1
+        }
+      },
+      "expected": {
+        "status": 400,
+        "rpc_called": false
+      }
+    },
+    {
+      "id": "nonprivileged_superseded",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {
+          "include_superseded": true
+        }
+      },
+      "expected": {
+        "status": 403,
+        "rpc_called": true,
+        "documents": []
+      }
+    },
+    {
+      "id": "privileged_superseded",
+      "request": {
+        "headers": {
+          "authorization": "Bearer __VALID_QA_JWT__"
+        },
+        "body": {
+          "include_superseded": true
+        }
+      },
+      "expected": {
+        "status": 200,
+        "rpc_called": true,
+        "role": "qa_manager"
+      }
+    },
+    {
+      "id": "two_user_rls_leakage",
+      "requests": [
+        {
+          "headers": {
+            "authorization": "Bearer __VALID_USER_JWT_A__"
+          },
+          "body": {
+            "keyword": "SYNTHETIC-DOC-B"
+          }
+        },
+        {
+          "headers": {
+            "authorization": "Bearer __VALID_USER_JWT_B__"
+          },
+          "body": {
+            "keyword": "SYNTHETIC-DOC-A"
+          }
+        }
+      ],
+      "expected": {
+        "status": 200,
+        "cross_user_document_count": 0
+      }
+    },
+    {
+      "id": "cors_allowed_origin",
+      "request": {
+        "headers": {
+          "origin": "https://tienhoandhd-droid.github.io",
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {}
+      },
+      "expected": {
+        "cors_allowed": true
+      }
+    },
+    {
+      "id": "cors_denied_origin",
+      "request": {
+        "headers": {
+          "origin": "https://attacker.invalid",
+          "authorization": "Bearer __VALID_USER_JWT_A__"
+        },
+        "body": {}
+      },
+      "expected": {
+        "cors_allowed": false
+      }
+    }
+  ]
+}
