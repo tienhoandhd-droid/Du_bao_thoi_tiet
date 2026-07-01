@@ -18,6 +18,7 @@ import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
 import MultimodalSearchPage from "@/features/search/MultimodalSearchPage";
+import { TieredAnswer } from "@/features/search/TieredAnswer";
 import { ObservabilityPanel, type ObservabilityRow } from "@/features/observability/ObservabilityPanel";
 import { EvalPanel } from "@/features/eval/EvalPanel";
 import type {
@@ -1276,17 +1277,13 @@ function AiSearchPage({
               <Alert tone="warning">🌐 {result.language_warning}</Alert>
             ) : null}
 
-            <div className="whitespace-pre-wrap rounded-2xl border border-border bg-white p-5 leading-7 shadow-sm">
-              {result.answer || result.message || "Không có nội dung trả lời."}
-            </div>
+            <TieredAnswer text={result.answer || result.message || "Không có nội dung trả lời."} />
 
             {result.sources?.length ? (
-              <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-                <div className="border-b border-border px-5 py-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Nguồn tham chiếu
-                  </h3>
-                </div>
+              <details open className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+                <summary className="cursor-pointer border-b border-border px-5 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Nguồn tham chiếu ({result.sources.length})
+                </summary>
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-sm">
                     <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.14em] text-slate-500">
@@ -1345,11 +1342,11 @@ function AiSearchPage({
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </details>
             ) : null}
 
             <Alert tone="info">
-              ⚕ {result.disclaimer || "Nội dung do AI tạo, cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức."}
+              ⚕ {result.disclaimer || "Nội dung do AI tạo (DRAFT), cần người có chuyên môn xem xét trước khi dùng cho hồ sơ GMP chính thức."}
             </Alert>
           </div>
         </Panel>
