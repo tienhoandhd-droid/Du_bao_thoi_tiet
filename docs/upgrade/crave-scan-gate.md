@@ -152,13 +152,19 @@ Push `main` (18 commit) → GitHub Actions: Deploy to GitHub Pages ✅, CI TS Bu
 Release Guard ✅. Site live HTTP 200 tại
 `https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/` (tab "🚩 Hàng đợi cờ AL").
 
-### 6h. Gate → webhook AL (khép kín pipeline, kèm JWT) — ĐÃ LÀM + verify
+### 6h. Gate → webhook AL (khép kín pipeline, kèm JWT) — ĐÃ CHẠY THẬT END-TO-END
 `scripts/ingest/crave_al_submit.py`: đọc report gate, với mỗi trang AL → render
-JPEG ~90 DPI → POST webhook kèm `Authorization: Bearer <JWT>`. JWT từ env
-`CRAVE_AL_JWT`, hoặc login `CRAVE_AL_EMAIL`/`CRAVE_AL_PASSWORD`
-(/auth/v1/token). **Verify:** dummy token → **HTTP 401** đúng Auth 401 (loop tới
-webhook OK, JWT Cách B chặn đúng). Token thật → qua Verify JWT → panel → ghi cờ.
-(Đã set User-Agent trình duyệt để vượt Cloudflare 1010.)
+JPEG ~90 DPI → POST webhook kèm `Authorization: Bearer <JWT>`. JWT tự lấy bằng
+login `CRAVE_AL_EMAIL`/`CRAVE_AL_PASSWORD` (/auth/v1/token) hoặc env `CRAVE_AL_JWT`.
+UA trình duyệt để vượt Cloudflare 1010.
+- **Tài khoản gate:** `crave-gate-svc@cpc1hn.com` (tạo qua admin API, `email_confirm`,
+  role `authenticated` — quyền thấp, chỉ gọi webhook). Creds ở `work/crave_al_gate.env`
+  (gitignored). service_role CHỈ dùng transient, không lưu file.
+- **Verify khép kín (LV-BSC-A2 p7,p12):** gate login → JWT → **HTTP 200** ×2 →
+  panel Groq đọc ảnh → ghi 2 cờ vào `scan_flag_queue` (p7 mismatch conf 0.3, p12
+  provisional conf 1), `status=AL_PROVISIONAL_PENDING_HUMAN`, `ai_use_allowed=true`.
+- Dummy token vẫn → HTTP 401 (JWT Cách B chặn đúng).
+> ⚠ Rotate service_role key (đã xuất hiện trong chat) khi rời môi trường test.
 
 ### 6i. Badge cờ trên kết quả tra cứu — ĐÃ LÀM + build PASS
 Migration `038_flagged_document_codes` (live): hàm `flagged_document_codes()` chỉ
