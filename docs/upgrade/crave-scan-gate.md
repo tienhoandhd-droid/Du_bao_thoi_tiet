@@ -90,9 +90,33 @@ Backbone dữ liệu: migration `036_scan_flag_queue` (bảng + view `scan_flags
 + hàm `clear_scan_flag` chỉ admin/qa_manager). Đã apply live + verify vòng đời
 đầy đủ (insert→pending→guard chặn non-QA→approve→bỏ cờ, pending=0).
 
-## 6. Việc còn lại
+## 6. AL Vision Panel — `TKTL CRAVE AL Vision Panel` (P7Gwt48UYrMW5num)
 
-1. Human QA (bỏ cờ) LAMSAFE p7/p12 qua `clear_scan_flag` (dashboard/WF-07).
-2. (Nâng cấp) AL panel **free-vision MoA** đọc ẢNH GỐC (Gemini/Groq vision, song
-   song độc lập) để adjudication giàu hơn — ghi cùng schema `scan_flag_queue`.
-3. Panel dashboard hiển thị `scan_flags_pending` + nút duyệt/từ chối.
+Workflow n8n hiện thực bước [4] AL so BẢN GỐC:
+`Webhook(crave-al-vision) → Dung request(base64→binary+prompt) → Gemini Image
+(native @n8n/…googleGemini, image/analyze, gemini-2.0-flash) → Aggregator AL →
+Ghi co(scan_flag_queue) → Tra ket qua`.
+
+- Đọc **ẢNH GỐC** (page image do gate render, gửi base64) và phán xử so 2 read
+  OCR on-device (apple/rapid) → provisional-approve + al_mismatch.
+- **Verify chạy thật:** execution `1585606` — Gemini vision đọc ảnh thật, trả
+  `reads_match_original:false` (node HOẠT ĐỘNG). Mọi execution status=SUCCESS;
+  ghi flag vào `scan_flag_queue` (flag_id trả về).
+- **Robust "1 node trả rỗng":** Gemini có retry ×4 + `onError=continueRegularOutput`.
+  Khi Gemini quá tải/hết quota free-tier → node trả item rỗng, aggregator xử lý
+  `vision_panel_size=0` → vẫn ghi flag `mismatch_flagged` → chờ người. KHÔNG
+  workflow nào crash (đã kiểm chứng qua nhiều execution rate-limited).
+- **MoA proposers** (`CRAVE v2 MoA`) cũng đã thêm `onError=continueRegularOutput`:
+  1 proposer free chết → aggregator vẫn chạy với proposer còn lại.
+
+**Giới hạn / còn lại:**
+1. Chỉ Gemini là vision-node native (bind credential + test được qua MCP). Groq/HF
+   **không có node vision native**; muốn panel đa-provider phải dùng HTTP Request
+   và **gắn credential trong UI** (MCP không gắn được credential cho HTTP node).
+2. Credential Gemini `SJOY2…` KEY INVALID → dùng `K79Qvznx7qa4UfFp`; free-tier
+   quota thấp (rate-limit khi test dồn). Cần quota/khung giờ để có verdict đầy đủ.
+3. Webhook `crave-al-vision` đang **inactive** + **chưa có JWT** → trước khi dùng
+   thật phải thêm JWT Cách B (AGENTS §6) rồi publish; nối gate local → webhook.
+4. Framing `CRAVE v2 MoA` chỉ dùng Gemini (single-point); nên thêm fallback Groq.
+5. Human QA (bỏ cờ) LAMSAFE p7/p12 qua `clear_scan_flag`; panel dashboard
+   `scan_flags_pending`.
