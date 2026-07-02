@@ -70,9 +70,10 @@ document_tables( ... page_number, n_rows, n_cols, cells jsonb, markdown text,
 ## 5b. NHẬN BIẾT CÓ HÌNH (figure detection) — 2 ca
 - **Born-digital PDF**: `PyMuPDF page.get_images()` trả ảnh nhúng + bbox **trực tiếp, chắc chắn**. (Sơ đồ vẽ vector → cần layout model như dưới.)
 - **Bản scan (cả trang là 1 ảnh)**: dùng **layout-detection model** phát hiện VÙNG và phân loại figure/table/formula + bbox:
-  - Local (máy mở): **Docling** (bbox texts/tables/pictures), **Surya** (layout + table, 90+ ngôn ngữ — có tiếng Việt), hoặc **PP-Structure/PP-DocLayout**.
-  - Cloud (máy tắt, n8n): **Gemini vision** — prompt "liệt kê mọi hình/sơ đồ/bảng trên trang + bbox + mô tả".
-  - **Đa engine ≥2** → hợp vùng theo IoU; lệch → **AL** đối chiếu ảnh gốc → cờ chờ human. Rồi crop theo bbox → webp (full+thumb) → Storage.
+  - Chạy **SONG SONG nhiều detector độc lập** (khác kiến trúc → đồng thuận mới có nghĩa):
+    local **Docling** (layout CNN) + **Surya** (có tiếng Việt) + **PP-Structure**; cloud **Gemini vision** (VLM). Máy tắt → chỉ nhánh cloud.
+  - **Tổng hợp (giống cổng OCR):** (1) **UNION** mọi vùng → **không bỏ sót hình** (recall cao); (2) gộp trùng theo **IoU** (Weighted Box Fusion/NMS); (3) **phân tầng tin cậy**: ≥2 detector trùng → *consensus* (auto-pass); chỉ 1 detector thấy → đưa **AL** duyệt (giữ lại, cần kiểm). → vừa không sót vừa chính xác.
+  - Rồi crop theo bbox → webp (full+thumb) → Storage.
 
 ## 6. Hiển thị & tra cứu trên dashboard
 - `MultimodalSearchPage` (bỏ mock): đọc `document_figures_v` → lưới thumb (signed URL) + caption/nhãn + badge review_status; click → ảnh full + bbox overlay trên trang gốc.
@@ -94,9 +95,16 @@ document_tables( ... page_number, n_rows, n_cols, cells jsonb, markdown text,
   **Gemini Embedding 2** (2026, native multimodal, 100+ ngôn ngữ — hợp tiếng Việt,
   cloud/tốn phí) hoặc **CLIP/SigLIP** (local, miễn phí nhưng yếu tiếng Việt + yếu
   hình dày chữ). Lưu ở `document_figures.visual_embedding vector(768)`.
-- **Best practice** (theo nghiên cứu): "dual representation" (chữ-trên-hình + visual)
-  cho kết quả tốt nhất; nhưng **bắt đầu bằng Lớp 1 + Lớp 2 là đủ dùng** và đúng
-  nguyên tắc explainable của CRAVE. Lớp 3 thêm khi cần "tìm visual thuần".
+- **CHẠY SONG SONG + HỢP BẰNG RRF (khớp nguyên tắc CRAVE):** index đồng thời cả
+  caption-embedding (Lớp 1) và visual-embedding (Lớp 3) + link trang (Lớp 2). Khi
+  gõ chữ, chạy **song song 3–4 ranker**: FTS + text-vector(chunk) + caption-vector(hình)
+  + visual-vector(hình) → **tổng hợp bằng RRF** — chính là cơ chế `hybrid_search_v4`
+  đang dùng, chỉ **mở rộng thêm 2 ranker**. Bắt được cả hình mô tả tốt lẫn hình mô tả
+  kém (visual cứu). Đây là "dual representation" mà nghiên cứu khuyến nghị cho kết quả tốt nhất.
+- **Đánh đổi:** chạy tất cả engine song song = chất lượng cao nhất nhưng tốn
+  compute/độ trễ/phí. Quy mô hiện tại (ít tài liệu) → làm tất cả song song vô tư;
+  corpus lớn → phân tầng (local trước, cloud/visual khi cần) nhưng giữ nguyên nguyên tắc.
+  Điều kiện đồng thuận có nghĩa: engine phải **độc lập** (khác kiến trúc/vendor).
 
 ## 7. Chi phí / giới hạn
 - Storage dung lượng + egress (signed URL qua CDN, cache theo tham số).
