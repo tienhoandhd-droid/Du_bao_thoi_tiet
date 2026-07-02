@@ -179,16 +179,15 @@ export async function fetchCalculateReport(
   return apiCall<CalculateReportResponse>("calculateReport", { method: "POST", body, token });
 }
 
-// WF-13 reads JWT from ?auth= query param, not Authorization header.
+// WF-13 nhận JWT qua Authorization header (không để token trong URL/log).
 export async function fetchCopilotQuery(
   body: CopilotQueryRequest,
   token: string,
   signal?: AbortSignal,
 ): Promise<CopilotQueryResponse> {
-  const url = `${apiEndpoints.copilotQuery}?auth=${encodeURIComponent(token)}`;
-  const response = await fetch(url, {
+  const response = await fetch(apiEndpoints.copilotQuery, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
     signal,
   });
