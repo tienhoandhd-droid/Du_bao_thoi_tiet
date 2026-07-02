@@ -90,33 +90,41 @@ Backbone dữ liệu: migration `036_scan_flag_queue` (bảng + view `scan_flags
 + hàm `clear_scan_flag` chỉ admin/qa_manager). Đã apply live + verify vòng đời
 đầy đủ (insert→pending→guard chặn non-QA→approve→bỏ cờ, pending=0).
 
-## 6. AL Vision Panel — `TKTL CRAVE AL Vision Panel` (P7Gwt48UYrMW5num)
+## 6. AL Vision Panel v2 — `TKTL CRAVE AL Vision Panel` (6AIVNwzW3bl0BAn5)
 
-Workflow n8n hiện thực bước [4] AL so BẢN GỐC:
-`Webhook(crave-al-vision) → Dung request(base64→binary+prompt) → Gemini Image
-(native @n8n/…googleGemini, image/analyze, gemini-2.0-flash) → Aggregator AL →
-Ghi co(scan_flag_queue) → Tra ket qua`.
-
-- Đọc **ẢNH GỐC** (page image do gate render, gửi base64) và phán xử so 2 read
-  OCR on-device (apple/rapid) → provisional-approve + al_mismatch.
-- **Verify chạy thật:** execution `1585606` — Gemini vision đọc ảnh thật, trả
-  `reads_match_original:false` (node HOẠT ĐỘNG). Mọi execution status=SUCCESS;
-  ghi flag vào `scan_flag_queue` (flag_id trả về).
-- **Robust "1 node trả rỗng":** Gemini có retry ×4 + `onError=continueRegularOutput`.
-  Khi Gemini quá tải/hết quota free-tier → node trả item rỗng, aggregator xử lý
-  `vision_panel_size=0` → vẫn ghi flag `mismatch_flagged` → chờ người. KHÔNG
-  workflow nào crash (đã kiểm chứng qua nhiều execution rate-limited).
-- **MoA proposers** (`CRAVE v2 MoA`) cũng đã thêm `onError=continueRegularOutput`:
-  1 proposer free chết → aggregator vẫn chạy với proposer còn lại.
+Workflow n8n hiện thực bước [4] AL so BẢN GỐC, **ensemble đa-model song song độc lập**:
+```
+Webhook(crave-al-vision) → Dung request(base64→binary + prompt)
+   ├─ Gemini Vision (chainLlm + lmChatGoogleGemini 2.0, imageBinary)  ┐
+   └─ Groq Vision   (chainLlm + lmChatGroq llama-4-scout, imageBinary)┘→ Gom panel(merge)
+   → Aggregator AL (hợp nhất vote/mismatch, lọc provider rỗng) → Ghi co(scan_flag_queue) → Tra ket qua
+```
+- Hai model VISION **đọc thẳng ẢNH GỐC** (chainLlm `messageType=imageBinary`), song
+  song độc lập; đối chiếu 2 read OCR on-device (apple/rapid). Node native →
+  credential auto-bind + test được qua MCP (khác HTTP node).
+- **Verify chạy thật (exec 1586516):** Groq/Llama-4 đọc ảnh, bắt đúng RAPID ghi
+  `0.3–0.36 m/s` lệch bản gốc `0.3–0.35 m/s`, trả JSON `reads_match_original:false`,
+  `confidence 0.98`. Webhook trả `al_confidence 0.98`, ghi flag thật vào queue.
+- **Robust "1 node trả rỗng" (đã kiểm chứng):** mỗi model retry ×3 +
+  `onError=continueRegularOutput`. Run 1586516: Gemini rỗng (hết quota free) →
+  aggregator LỌC provider rỗng, vẫn ra verdict từ Groq (`panel_size 1`), ghi flag,
+  KHÔNG crash. `providers_ran` ghi rõ model nào đã chạy.
+- **MoA proposers** (`CRAVE v2 MoA`) cũng `onError=continueRegularOutput`: 1
+  proposer free chết → aggregator vẫn chạy với proposer còn lại.
 
 **Giới hạn / còn lại:**
-1. Chỉ Gemini là vision-node native (bind credential + test được qua MCP). Groq/HF
-   **không có node vision native**; muốn panel đa-provider phải dùng HTTP Request
-   và **gắn credential trong UI** (MCP không gắn được credential cho HTTP node).
+1. **Hugging Face:** node native `lmOpenHuggingFaceInference` dùng task
+   `text-generation`, nhưng HF Inference đã chuyển các model instruct sang
+   `conversational` (lỗi "Supported task: conversational" với Llama-3.3 & Mistral-7B).
+   ⇒ HF đã gỡ khỏi panel để mọi node đều chạy. Muốn thêm HF: gọi router chat
+   `https://router.huggingface.co/v1/chat/completions` bằng HTTP + **bind credential
+   `huggingFaceApi` trong UI n8n** (MCP không bind được credential HTTP node).
 2. Credential Gemini `SJOY2…` KEY INVALID → dùng `K79Qvznx7qa4UfFp`; free-tier
-   quota thấp (rate-limit khi test dồn). Cần quota/khung giờ để có verdict đầy đủ.
-3. Webhook `crave-al-vision` đang **inactive** + **chưa có JWT** → trước khi dùng
-   thật phải thêm JWT Cách B (AGENTS §6) rồi publish; nối gate local → webhook.
-4. Framing `CRAVE v2 MoA` chỉ dùng Gemini (single-point); nên thêm fallback Groq.
-5. Human QA (bỏ cờ) LAMSAFE p7/p12 qua `clear_scan_flag`; panel dashboard
-   `scan_flags_pending`.
+   quota thấp (test dồn bị rate-limit → Gemini thường rỗng, Groq gánh). Có quota
+   thì `panel_size 2`.
+3. Webhook `crave-al-vision`: bật khi test, **inactive mặc định**; trước production
+   phải thêm auth (JWT Cách B / header secret — cùng vướng bind credential HTTP).
+4. Framing `CRAVE v2 MoA` chỉ dùng Gemini (single-point) → nên chuyển sang chainLlm
+   `needsFallback` [Gemini, Groq] (chưa làm, tránh sửa hỏng MoA đang chạy).
+5. Human QA (bỏ cờ) LAMSAFE p7/p12 qua `clear_scan_flag`; dashboard
+   `scan_flags_pending` (frontend, chưa làm).
