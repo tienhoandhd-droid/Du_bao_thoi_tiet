@@ -16,6 +16,7 @@ import { sb } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
+import { FlagQueuePanel } from "@/features/validation/FlagQueuePanel";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
 import MultimodalSearchPage from "@/features/search/MultimodalSearchPage";
 import { TieredAnswer } from "@/features/search/TieredAnswer";
@@ -30,7 +31,7 @@ import type {
 } from "@/types/api";
 import type { EnvCheck } from "@/types/env";
 
-type PageId = "dashboard" | "ai-search" | "documents" | "multimodal" | "web-search" | "audit" | "security" | "validation";
+type PageId = "dashboard" | "ai-search" | "documents" | "multimodal" | "web-search" | "audit" | "security" | "validation" | "flags";
 
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 
@@ -43,6 +44,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   audit: "✧ Audit Trail",
   security: "🔒 Bảo mật",
   validation: "⚗ Công cụ thẩm định",
+  flags: "🚩 Hàng đợi cờ AL",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -784,6 +786,7 @@ export default function App() {
       {page === "validation" && sb ? (
         <ValidationPage sb={sb} token={token} onUnauthorized={() => void handleLogout()} />
       ) : null}
+      {page === "flags" ? <FlagQueuePanel /> : null}
     </Shell>
   );
 }
@@ -978,6 +981,9 @@ function Shell({
             <NavItem active={page === "validation"} onClick={() => onPageChange("validation")}>
               ⚗ Công cụ thẩm định
             </NavItem>
+            <NavItem active={page === "flags"} onClick={() => onPageChange("flags")}>
+              🚩 Hàng đợi cờ AL
+            </NavItem>
           </nav>
         </aside>
 
@@ -1029,6 +1035,9 @@ function Shell({
                 </MobileNavItem>
                 <MobileNavItem active={page === "validation"} onClick={() => onPageChange("validation")}>
                   Thẩm định
+                </MobileNavItem>
+                <MobileNavItem active={page === "flags"} onClick={() => onPageChange("flags")}>
+                  Cờ AL
                 </MobileNavItem>
               </div>
             </div>
