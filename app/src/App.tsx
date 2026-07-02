@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ValidationPage } from "@/features/validation/ValidationPage";
 import { FlagQueuePanel } from "@/features/validation/FlagQueuePanel";
+import { usePendingFlagCodes } from "@/features/validation/usePendingFlags";
 import { WebSearchPanel } from "@/features/search/WebSearchPanel";
 import MultimodalSearchPage from "@/features/search/MultimodalSearchPage";
 import { TieredAnswer } from "@/features/search/TieredAnswer";
@@ -1225,6 +1226,7 @@ function AiSearchPage({
   token: string;
   onWebSearch: (query: string) => void;
 }) {
+  const flaggedCodes = usePendingFlagCodes();
   return (
     <>
       <Panel title="Hỏi AI về SOP, Guideline, Đề cương">
@@ -1315,6 +1317,14 @@ function AiSearchPage({
                           <Td>{index + 1}</Td>
                           <Td className="font-semibold">
                             {formatValue(source.document_code)}
+                            {source.document_code && flaggedCodes.has(source.document_code) ? (
+                              <span
+                                title="Tài liệu có điểm dữ liệu chưa khớp, đang chờ QA duyệt chính thức"
+                                className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                              >
+                                🚩 chờ QA
+                              </span>
+                            ) : null}
                           </Td>
                           <Td>{formatValue(source.version ?? "-")}</Td>
                           <Td>

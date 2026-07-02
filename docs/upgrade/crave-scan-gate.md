@@ -152,8 +152,23 @@ Push `main` (18 commit) → GitHub Actions: Deploy to GitHub Pages ✅, CI TS Bu
 Release Guard ✅. Site live HTTP 200 tại
 `https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/` (tab "🚩 Hàng đợi cờ AL").
 
+### 6h. Gate → webhook AL (khép kín pipeline, kèm JWT) — ĐÃ LÀM + verify
+`scripts/ingest/crave_al_submit.py`: đọc report gate, với mỗi trang AL → render
+JPEG ~90 DPI → POST webhook kèm `Authorization: Bearer <JWT>`. JWT từ env
+`CRAVE_AL_JWT`, hoặc login `CRAVE_AL_EMAIL`/`CRAVE_AL_PASSWORD`
+(/auth/v1/token). **Verify:** dummy token → **HTTP 401** đúng Auth 401 (loop tới
+webhook OK, JWT Cách B chặn đúng). Token thật → qua Verify JWT → panel → ghi cờ.
+(Đã set User-Agent trình duyệt để vượt Cloudflare 1010.)
+
+### 6i. Badge cờ trên kết quả tra cứu — ĐÃ LÀM + build PASS
+Migration `038_flagged_document_codes` (live): hàm `flagged_document_codes()` chỉ
+trả document_code đang có cờ pending (mọi authenticated) — chi tiết mismatch vẫn
+QA-only (037). Frontend: hook `usePendingFlagCodes` + badge **🚩 chờ QA** cạnh
+document_code trong bảng Nguồn tham chiếu (AiSearchPage). Cờ chỉ mất khi QA duyệt
+chính thức (`clear_scan_flag` HUMAN_APPROVED); AL provisional KHÔNG xoá cờ.
+`npm run build` PASS (88 modules).
+
 **Còn lại (cần thao tác UI / quyết định của bạn):**
-- Credential Gemini `SJOY2…` KEY INVALID → xoá/rotate; free-tier quota thấp.
-- HF credential đã bind (người dùng làm) → panel 3 provider (HF best-effort).
+- Owner đặt env `CRAVE_AL_JWT` (hoặc creds service account) để gate gọi webhook thật.
+- Credential Gemini free quota thấp (Gemini thường rỗng, Groq gánh).
 - Human QA (bỏ cờ) LAMSAFE p7/p12 qua dashboard.
-- Nối gate local → webhook AL (gửi ảnh render) để chạy tự động end-to-end.
