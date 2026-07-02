@@ -756,6 +756,8 @@ export default function App() {
           onDocSearchChange={setDocSearch}
           onSubmit={submitDocuments}
           documents={documents}
+          roles={roles}
+          onReload={() => void loadDocuments()}
         />
       ) : null}
 
@@ -1387,6 +1389,8 @@ function DocumentsPage({
   onDocFilterLangChange,
   onDocFilterStatusChange,
   onSubmit,
+  roles,
+  onReload,
 }: {
   docSearch: string;
   docFilterLang: string;
@@ -1398,7 +1402,27 @@ function DocumentsPage({
   onDocFilterLangChange: (value: string) => void;
   onDocFilterStatusChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  roles: string[];
+  onReload: () => void;
 }) {
+  const canManage = roles.some((r) => r === "admin" || r === "qa_manager");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  async function toggleLifecycle(doc: DocumentRecord) {
+    if (!sb) return;
+    const archived = String(doc.status) === "archived";
+    setBusyId(String(doc.id));
+    try {
+      const { error: err } = archived
+        ? await sb.rpc("reactivate_document", { p_doc_id: String(doc.id) })
+        : await sb.rpc("retire_document", { p_doc_id: String(doc.id), p_reason: "Hết hạn/ngừng dùng" });
+      if (err) throw err;
+      onReload();
+    } catch (e) {
+      alert("Lỗi vòng đời: " + (e instanceof Error ? e.message : "không đổi được (cần quyền admin/qa_manager)"));
+    } finally {
+      setBusyId(null);
+    }
+  }
   return (
     <>
       <Panel title="Thư viện tài liệu">
@@ -1463,6 +1487,7 @@ function DocumentsPage({
                   <Th>Trạng thái</Th>
                   <Th>AI</Th>
                   <Th>Chunks</Th>
+                  <Th>Vòng đời</Th>
                 </tr>
               </thead>
               <tbody>
@@ -1501,6 +1526,23 @@ function DocumentsPage({
                       </Badge>
                     </Td>
                     <Td>{document.chunk_count ?? 0}</Td>
+                    <Td>
+                      {canManage ? (
+                        <button
+                          type="button"
+                          disabled={busyId === String(document.id)}
+                          onClick={() => toggleLifecycle(document)}
+                          className={cn(
+                            "rounded-md px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50",
+                            String(document.status) === "archived" ? "bg-emerald-600" : "bg-rose-600",
+                          )}
+                        >
+                          {String(document.status) === "archived" ? "Kích hoạt lại" : "Ngừng dùng"}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">—</span>
+                      )}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
