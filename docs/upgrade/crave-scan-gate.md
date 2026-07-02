@@ -140,6 +140,12 @@ execution `1587517` SUCCESS, verdict `supported` 0.87, ghi `claim_verdicts`.
 mismatch, nút **Duyệt (bỏ cờ)** / **Từ chối** gọi RPC `clear_scan_flag`
 (admin/qa_manager). `npm run build` PASS (tsc + vite, 87 modules).
 
+### 6f. Hardening RLS view — ĐÃ LÀM + verify
+Migration `037_scan_flags_pending_security_invoker` (applied live, có rollback):
+đặt `security_invoker=on` cho view `scan_flags_pending` → view chạy quyền người
+gọi ⇒ policy `scan_flag_read_reviewer` áp đúng (chỉ QA/admin/auditor/owner đọc cờ).
+**Verify:** `reloptions = ["security_invoker=on"]`.
+
 **Còn lại (cần thao tác UI / quyết định của bạn):**
 - **Bind credential HF** (1 click UI) → panel thành 3 provider.
 - Credential Gemini `SJOY2…` KEY INVALID → xoá/rotate; free-tier quota thấp.
