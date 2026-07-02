@@ -35,8 +35,8 @@ import pypdfium2 as pdfium
 
 ROOT = Path(__file__).resolve().parents[2]  # scripts/ingest/<file> -> repo root
 VISION_SOURCE = ROOT / "scripts/r05_a26_macos_vision_ocr.m"
-GATE = "CRAVE_SCAN_GATE_V2"
-SCHEMA_VERSION = 2
+GATE = "CRAVE_SCAN_GATE_V3"
+SCHEMA_VERSION = 3
 
 # Ngưỡng đồng thuận (bảo thủ theo A26).
 MIN_OCR_WORDS = 8            # dưới mức này coi như trang gần trống
@@ -258,6 +258,32 @@ def sample_pages(total: int, requested: str | None) -> list[int]:
     return sorted({0, total // 4, total // 2, (3 * total) // 4, total - 1})
 
 
+def build_flag_payload(page_rec: dict[str, Any], document_code: str, source_sha256: str) -> dict[str, Any]:
+    """[4] AL duyệt tạm: dựng payload cờ cho 1 trang AL từ bất đồng engine (numeric-aware)."""
+    last = page_rec["rounds"][-1]
+    apple = next((e for e in last["engines"] if e["engine"] == "apple_vision"), {})
+    rapid = next((e for e in last["engines"] if e["engine"] == "rapidocr"), {})
+    # Lấy token số "không khớp" từ so sánh apple~rapid ở vòng cuối.
+    diff = next((c.get("numeric_symmetric_diff", []) for c in last["comparisons"]
+                 if c["pair"] == "apple_vision~rapidocr"), [])
+    best_sim = max((c["similarity"] for c in last["comparisons"]), default=0.0)
+    mismatch = [{
+        "field": "numeric_tokens", "page": page_rec["page_1based"],
+        "engine_values": {"apple_vision": apple.get("preview", ""), "rapidocr": rapid.get("preview", "")},
+        "disputed_numbers": diff, "note": "apple_vision vs rapidocr lệch số/đơn vị sau DPI ladder",
+    }] if diff else []
+    return {
+        "document_code": document_code, "source_sha256": source_sha256,
+        "page_number": page_rec["page_1based"], "gate": GATE,
+        "engines_evidence": {"rounds": len(page_rec["rounds"]), "last_round": last},
+        "al_verdict": "mismatch_flagged" if mismatch else "provisional_approved",
+        "al_confidence": round(best_sim, 4),
+        "al_mismatch": mismatch,
+        "provisional_approved": True,  # [4] cho đi tiếp để không nghẽn
+        "status": "AL_PROVISIONAL_PENDING_HUMAN",
+    }
+
+
 def scan_pdf(pdf_path: Path, document_code: str, languages: str, pages_arg: str | None) -> dict[str, Any]:
     document = pdfium.PdfDocument(str(pdf_path))
     total = len(document)
@@ -268,26 +294,35 @@ def scan_pdf(pdf_path: Path, document_code: str, languages: str, pages_arg: str 
         compiler_evidence = compile_vision_tool(vision_bin)
         page_records = [scan_page(document, i, vision_bin, languages, tmp_dir) for i in pages]
 
+    src_sha = sha256_file(pdf_path)
+    al_pages = [r for r in page_records if r["status"] == "AL_ADJUDICATION"]
+    flag_payloads = [build_flag_payload(r, document_code, src_sha) for r in al_pages]
+
     order = ["FAIL_EXTRACT", "AL_ADJUDICATION", "NEEDS_HUMAN_REVIEW",
              "OCR_CONSENSUS_CANDIDATE", "PASS_CANDIDATE"]
     statuses = [r["status"] for r in page_records] or ["FAIL_EXTRACT"]
-    doc_status = min(statuses, key=lambda s: order.index(s) if s in order else 0)
+    worst = min(statuses, key=lambda s: order.index(s) if s in order else 0)
+    # [4] có cờ AL ⇒ tài liệu ĐI TIẾP (provisional) nhưng mang cờ chờ người duyệt.
+    doc_status = "AL_PROVISIONAL_PENDING_HUMAN" if worst == "AL_ADJUDICATION" else worst
     return {
         "gate": GATE, "schema_version": SCHEMA_VERSION,
         "policy": "docs/governance/high-accuracy-ensemble-policy.md",
         "document_code": document_code, "source_file": pdf_path.name,
-        "source_sha256": sha256_file(pdf_path),
+        "source_sha256": src_sha,
         "page_count": total, "sampled_pages": [p + 1 for p in pages],
         "compiler_evidence": compiler_evidence,
         "engines_independent": ["pdf_text_layer(pypdfium2)", "apple_vision(on-device)", "rapidocr(onnx)"],
         "dpi_ladder": list(DPI_LADDER),
         "page_records": page_records,
         "document_review_status": doc_status,
-        "al_pages": [r["page_1based"] for r in page_records if r["status"] == "AL_ADJUDICATION"],
-        "human_approved": False, "ai_use_allowed": False, "remote_mutation_allowed": False,
+        "al_pages": [r["page_1based"] for r in al_pages],
+        "flag_payloads": flag_payloads,  # → INSERT vào public.scan_flag_queue (bước [4])
+        "human_approved": False, "provisional_approved": bool(flag_payloads),
+        "remote_mutation_allowed": False,
         "note": (
-            "Đa engine độc lập → tổng hợp numeric-aware → retry tăng DPI → AL so bản gốc → "
-            "human duyệt. Không auto-approve. OCR on-device, không upload GMP lên cloud."
+            "Đa engine độc lập → tổng hợp numeric-aware → retry tăng DPI → AL DUYỆT TẠM "
+            "(provisional, ghi scan_flag_queue) → người duyệt bỏ cờ. OCR on-device, "
+            "không upload GMP lên cloud. clear_scan_flag() chỉ admin/qa_manager."
         ),
     }
 
