@@ -112,19 +112,26 @@ Webhook(crave-al-vision) → Dung request(base64→binary + prompt)
 - **MoA proposers** (`CRAVE v2 MoA`) cũng `onError=continueRegularOutput`: 1
   proposer free chết → aggregator vẫn chạy với proposer còn lại.
 
-**Giới hạn / còn lại:**
-1. **Hugging Face:** node native `lmOpenHuggingFaceInference` dùng task
-   `text-generation`, nhưng HF Inference đã chuyển các model instruct sang
-   `conversational` (lỗi "Supported task: conversational" với Llama-3.3 & Mistral-7B).
-   ⇒ HF đã gỡ khỏi panel để mọi node đều chạy. Muốn thêm HF: gọi router chat
-   `https://router.huggingface.co/v1/chat/completions` bằng HTTP + **bind credential
-   `huggingFaceApi` trong UI n8n** (MCP không bind được credential HTTP node).
-2. Credential Gemini `SJOY2…` KEY INVALID → dùng `K79Qvznx7qa4UfFp`; free-tier
-   quota thấp (test dồn bị rate-limit → Gemini thường rỗng, Groq gánh). Có quota
-   thì `panel_size 2`.
-3. Webhook `crave-al-vision`: bật khi test, **inactive mặc định**; trước production
-   phải thêm auth (JWT Cách B / header secret — cùng vướng bind credential HTTP).
-4. Framing `CRAVE v2 MoA` chỉ dùng Gemini (single-point) → nên chuyển sang chainLlm
-   `needsFallback` [Gemini, Groq] (chưa làm, tránh sửa hỏng MoA đang chạy).
-5. Human QA (bỏ cờ) LAMSAFE p7/p12 qua `clear_scan_flag`; dashboard
-   `scan_flags_pending` (frontend, chưa làm).
+### 6b. Hugging Face (provider thứ 3) — đã wire, chờ 1 click credential
+Node `HF Vision` (HTTP → `router.huggingface.co/v1/chat/completions`, model
+`Qwen/Qwen2.5-VL-7B-Instruct`, vision) **đã nối vào panel** (build→HF Vision→merge
+input 2, aggregator đọc `choices[0].message.content`, `onError=continue`). **Chỉ
+còn 1 thao tác UI:** mở node HF Vision → chọn credential **Hugging Face account**
+(MCP không bind được credential cho node HTTP — giới hạn công cụ, đã xác nhận
+nhiều lần). Bind xong → panel thành **3 provider** (Gemini + Groq + HF).
+> Lý do không dùng node HF native: `lmOpenHuggingFaceInference` = task
+> `text-generation`, nhưng HF đã chuyển model instruct sang `conversational-only`.
+
+### 6c. Auth webhook — ĐÃ BẬT (headerAuth) + verify
+`AL Webhook` đặt `authentication=headerAuth`, bind credential `CRAVE Supabase
+apikey A41`. **Verify:** curl không header → **HTTP 403** (chặn đúng); có panel
+chạy khi gọi hợp lệ. Đây là cổng shared-secret; muốn **JWT Cách B đầy đủ**
+(GET `/auth/v1/user`) cần thêm node HTTP verify + bind apikey credential trong UI.
+
+**Còn lại (đề xuất, chưa làm — tránh phá bản đang chạy):**
+- Credential Gemini `SJOY2…` KEY INVALID → dùng `K79…`; free-tier quota thấp
+  (test dồn bị rate-limit → Gemini rỗng, Groq gánh; có quota thì panel_size ≥2).
+- Framing `CRAVE v2 MoA` chỉ Gemini (single-point) → chuyển chainLlm
+  `needsFallback` [Gemini, Groq].
+- Dashboard `scan_flags_pending` + nút duyệt/từ chối `clear_scan_flag` (frontend).
+- Human QA (bỏ cờ) LAMSAFE p7/p12.
