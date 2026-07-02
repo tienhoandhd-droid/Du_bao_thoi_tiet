@@ -67,10 +67,36 @@ document_tables( ... page_number, n_rows, n_cols, cells jsonb, markdown text,
 - **Nguyên tắc đa engine** (như scan text): ≥2 engine phát hiện → hợp vùng; lệch → AL đối chiếu ảnh gốc → cờ chờ human (tái dùng `scan_flag_queue` + AL panel vision).
 - Upload crop (full+thumb) lên bucket → insert `document_figures`.
 
+## 5b. NHẬN BIẾT CÓ HÌNH (figure detection) — 2 ca
+- **Born-digital PDF**: `PyMuPDF page.get_images()` trả ảnh nhúng + bbox **trực tiếp, chắc chắn**. (Sơ đồ vẽ vector → cần layout model như dưới.)
+- **Bản scan (cả trang là 1 ảnh)**: dùng **layout-detection model** phát hiện VÙNG và phân loại figure/table/formula + bbox:
+  - Local (máy mở): **Docling** (bbox texts/tables/pictures), **Surya** (layout + table, 90+ ngôn ngữ — có tiếng Việt), hoặc **PP-Structure/PP-DocLayout**.
+  - Cloud (máy tắt, n8n): **Gemini vision** — prompt "liệt kê mọi hình/sơ đồ/bảng trên trang + bbox + mô tả".
+  - **Đa engine ≥2** → hợp vùng theo IoU; lệch → **AL** đối chiếu ảnh gốc → cờ chờ human. Rồi crop theo bbox → webp (full+thumb) → Storage.
+
 ## 6. Hiển thị & tra cứu trên dashboard
 - `MultimodalSearchPage` (bỏ mock): đọc `document_figures_v` → lưới thumb (signed URL) + caption/nhãn + badge review_status; click → ảnh full + bbox overlay trên trang gốc.
 - `FlagQueuePanel v2`: hiện **crop trang gốc** (signed URL) cạnh 3 cột OCR (apple/rapid/AL) + mismatch → QA đối chiếu trực tiếp.
-- (Sau) **multimodal search**: nhúng CLIP → tìm hình bằng mô tả/ảnh; hoặc gắn figure vào chunk cùng page để CRAVE trích dẫn kèm hình.
+
+## 6b. TÌM BẰNG CHỮ RA HÌNH (text → image retrieval) — 3 lớp, đề xuất hybrid
+- **Lớp 1 (NỀN TẢNG, đề xuất chính) — Caption/description embedding (text→text):**
+  lúc ingest, vision model **mô tả hình bằng chữ** ("Sơ đồ dây chuyền chiết rót vô
+  trùng cấp A…") + **OCR nhãn/chữ trong hình** + caption gốc + đoạn văn quanh hình.
+  Nhúng mô tả này bằng **CHÍNH model text 1536 đang dùng** → đưa vào index như một
+  "chunk hình". Gõ chữ → query khớp mô tả → **hình hiện ra**. Ưu: tái dùng
+  `hybrid_search_v4` sẵn có, **hợp tiếng Việt**, **giải thích được** (mô tả là chữ),
+  rẻ, không thêm model. → Đây là cách chắc nhất, làm trước.
+- **Lớp 2 (LUÔN NÊN CÓ) — Liên kết hình ↔ trang/chunk:** mỗi figure gắn `page_number`
+  + chunk cùng trang. Khi CRAVE trích dẫn đoạn ở trang X → **kèm luôn hình ở trang X**.
+  Không cần embedding hình, rất hiệu quả cho tài liệu kỹ thuật.
+- **Lớp 3 (NÂNG CAO, bật sau) — Embedding đa phương thức thật (visual):** nhúng CHÍNH
+  ẢNH vào cùng không gian với chữ để bắt cái caption bỏ sót. Lựa chọn:
+  **Gemini Embedding 2** (2026, native multimodal, 100+ ngôn ngữ — hợp tiếng Việt,
+  cloud/tốn phí) hoặc **CLIP/SigLIP** (local, miễn phí nhưng yếu tiếng Việt + yếu
+  hình dày chữ). Lưu ở `document_figures.visual_embedding vector(768)`.
+- **Best practice** (theo nghiên cứu): "dual representation" (chữ-trên-hình + visual)
+  cho kết quả tốt nhất; nhưng **bắt đầu bằng Lớp 1 + Lớp 2 là đủ dùng** và đúng
+  nguyên tắc explainable của CRAVE. Lớp 3 thêm khi cần "tìm visual thuần".
 
 ## 7. Chi phí / giới hạn
 - Storage dung lượng + egress (signed URL qua CDN, cache theo tham số).
