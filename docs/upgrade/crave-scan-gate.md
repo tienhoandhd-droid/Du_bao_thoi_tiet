@@ -122,11 +122,12 @@ nhiều lần). Bind xong → panel thành **3 provider** (Gemini + Groq + HF).
 > Lý do không dùng node HF native: `lmOpenHuggingFaceInference` = task
 > `text-generation`, nhưng HF đã chuyển model instruct sang `conversational-only`.
 
-### 6c. Auth webhook — ĐÃ BẬT (headerAuth) + verify
-`AL Webhook` đặt `authentication=headerAuth`, bind credential `CRAVE Supabase
-apikey A41`. **Verify:** curl không header → **HTTP 403** (chặn đúng); có panel
-chạy khi gọi hợp lệ. Đây là cổng shared-secret; muốn **JWT Cách B đầy đủ**
-(GET `/auth/v1/user`) cần thêm node HTTP verify + bind apikey credential trong UI.
+### 6c. Auth webhook — JWT Cách B ĐẦY ĐỦ + verify
+`AL Webhook` (auth none) → **`Verify JWT`** (GET `/auth/v1/user`, `Authorization:
+Bearer <jwt caller>` + `apikey` = anon key public-safe plain header, neverError,
+`onError=continueErrorOutput`) → **`Auth OK?`** (IF `$json.id` notEmpty) → hợp lệ:
+vào pipeline; sai/thiếu: **`Auth 401`**. Đúng khuôn WF-14 (không cần bind credential
+vì anon key là plain header public-safe). **Verify:** curl không token → **HTTP 401**.
 
 ### 6d. Framing fallback MoA — ĐÃ LÀM + verify
 `Khung hoa menh de` (framing agent) đặt `needsFallback=true` + model fallback
@@ -146,8 +147,13 @@ Migration `037_scan_flags_pending_security_invoker` (applied live, có rollback)
 gọi ⇒ policy `scan_flag_read_reviewer` áp đúng (chỉ QA/admin/auditor/owner đọc cờ).
 **Verify:** `reloptions = ["security_invoker=on"]`.
 
+### 6g. Deploy dashboard — ĐÃ PUSH + Actions PASS
+Push `main` (18 commit) → GitHub Actions: Deploy to GitHub Pages ✅, CI TS Build ✅,
+Release Guard ✅. Site live HTTP 200 tại
+`https://tienhoandhd-droid.github.io/Du_bao_thoi_tiet/` (tab "🚩 Hàng đợi cờ AL").
+
 **Còn lại (cần thao tác UI / quyết định của bạn):**
-- **Bind credential HF** (1 click UI) → panel thành 3 provider.
 - Credential Gemini `SJOY2…` KEY INVALID → xoá/rotate; free-tier quota thấp.
-- Full JWT Cách B (verify `/auth/v1/user`) thay cho header-secret (cần bind apikey UI).
-- Human QA (bỏ cờ) LAMSAFE p7/p12 qua dashboard mới.
+- HF credential đã bind (người dùng làm) → panel 3 provider (HF best-effort).
+- Human QA (bỏ cờ) LAMSAFE p7/p12 qua dashboard.
+- Nối gate local → webhook AL (gửi ảnh render) để chạy tự động end-to-end.
