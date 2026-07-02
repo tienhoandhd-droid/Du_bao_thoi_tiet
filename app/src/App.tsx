@@ -1409,12 +1409,16 @@ function DocumentsPage({
   const [busyId, setBusyId] = useState<string | null>(null);
   async function toggleLifecycle(doc: DocumentRecord) {
     if (!sb) return;
-    const archived = String(doc.status) === "archived";
+    const status = String(doc.status);
+    const pending = status !== "approved_for_ai_use" && status !== "archived";
     setBusyId(String(doc.id));
     try {
-      const { error: err } = archived
-        ? await sb.rpc("reactivate_document", { p_doc_id: String(doc.id) })
-        : await sb.rpc("retire_document", { p_doc_id: String(doc.id), p_reason: "Hết hạn/ngừng dùng" });
+      const { error: err } =
+        status === "archived"
+          ? await sb.rpc("reactivate_document", { p_doc_id: String(doc.id) })
+          : pending
+            ? await sb.rpc("approve_document", { p_doc_id: String(doc.id) })
+            : await sb.rpc("retire_document", { p_doc_id: String(doc.id), p_reason: "Hết hạn/ngừng dùng" });
       if (err) throw err;
       onReload();
     } catch (e) {
@@ -1534,10 +1538,18 @@ function DocumentsPage({
                           onClick={() => toggleLifecycle(document)}
                           className={cn(
                             "rounded-md px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50",
-                            String(document.status) === "archived" ? "bg-emerald-600" : "bg-rose-600",
+                            String(document.status) === "archived"
+                              ? "bg-emerald-600"
+                              : String(document.status) === "approved_for_ai_use"
+                                ? "bg-rose-600"
+                                : "bg-indigo-600",
                           )}
                         >
-                          {String(document.status) === "archived" ? "Kích hoạt lại" : "Ngừng dùng"}
+                          {String(document.status) === "archived"
+                            ? "Kích hoạt lại"
+                            : String(document.status) === "approved_for_ai_use"
+                              ? "Ngừng dùng"
+                              : "Duyệt cho AI"}
                         </button>
                       ) : (
                         <span className="text-[11px] text-slate-400">—</span>
