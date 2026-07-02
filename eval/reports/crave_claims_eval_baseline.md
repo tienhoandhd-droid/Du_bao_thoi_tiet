@@ -33,7 +33,12 @@
   refusal (100%) và verdict; faithfulness cấp mệnh đề (LLM judge) là bước eval kế tiếp.
 - Hạn chế: n=6 (1 tài liệu LV-BSC-A2). Mở rộng golden set khi corpus tăng.
 
+## Cập nhật sau siết prompt (aggregator v1.1 — migration 039)
+Đã thêm rule fail-closed: `insufficient` ⇒ support=[]/citations=[]. **Verify lại C04**
+(công suất W): verdict `insufficient`, **support=0, citations=0, refute=0** →
+**citation_ok = 6/6 = 1.0**. Workflow MoA đọc prompt theo `is_active` (tự dùng v1.1).
+
 ## Việc tiếp
-1. Siết prompt aggregator: verdict `insufficient` KHÔNG kèm citation khẳng định.
+1. ✅ (xong) Siết prompt aggregator: insufficient không kèm citation.
 2. Thêm faithfulness judge cấp mệnh đề (free LLM) vào runner.
 3. Mở rộng golden claims theo corpus mới.
