@@ -1,0 +1,67 @@
+{
+  "dataset": "eval/datasets/crave_golden_claims_lamsafe.jsonl",
+  "n_claims": 6,
+  "errors": 1,
+  "verdict_match_rate": 1.0,
+  "citation_ok_rate": 0.8,
+  "refusal_ok_rate": 1.0,
+  "rows": [
+    {
+      "id": "LV-C01",
+      "verdict": "supported",
+      "confidence": 0.9,
+      "verdict_match": true,
+      "citation_ok": true,
+      "refusal_ok": true,
+      "n_citations": 2,
+      "requires_human_signoff": false
+    },
+    {
+      "id": "LV-C02",
+      "verdict": "conditional",
+      "confidence": 0.8,
+      "verdict_match": true,
+      "citation_ok": true,
+      "refusal_ok": true,
+      "n_citations": 1,
+      "requires_human_signoff": false
+    },
+    {
+      "id": "LV-C03",
+      "verdict": "conflicting",
+      "confidence": 0.85,
+      "verdict_match": true,
+      "citation_ok": true,
+      "refusal_ok": true,
+      "n_citations": 1,
+      "requires_human_signoff": true
+    },
+    {
+      "id": "LV-C04",
+      "verdict": "insufficient",
+      "confidence": 0.55,
+      "verdict_match": true,
+      "citation_ok": false,
+      "refusal_ok": true,
+      "n_citations": 2,
+      "requires_human_signoff": true
+    },
+    {
+      "id": "LV-C05",
+      "verdict": "supported",
+      "confidence": 0.9,
+      "verdict_match": true,
+      "citation_ok": true,
+      "refusal_ok": true,
+      "n_citations": 3,
+      "requires_human_signoff": false
+    },
+    {
+      "id": "LV-C06",
+      "error": {
+        "_http_error": 404,
+        "_body": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n<script defer src=\"https://static.cloudflareinsights.com"
+      }
+    }
+  ]
+}
